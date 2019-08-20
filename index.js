@@ -1,5 +1,3 @@
-// This is mainly just used for testing.
-// Google requires their script to be served on a server of some form
 const express = require('express');
 
 const app = express();
@@ -10,4 +8,6 @@ app.get('/', (req, res) => {
   res.sendfile('./index.html');
 });
 
-app.listen(3000);
+app.listen(3000, () => {
+  console.log('app listening on port 3000')
+});
