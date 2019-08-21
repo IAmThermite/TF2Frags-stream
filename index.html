@@ -20,37 +20,53 @@
 
       function updateClipInfo(name, channel) {
         obs.send('SetTextFreetype2Properties', {
-            source: 'ClipInfo',
-            text: `${name}\n${channel}`
-          });
-          console.log('message sent');
+          source: 'ClipInfo',
+          text: `${name}\nBy - ${channel}`
+        });
+        console.log('OBS Source updated');
       }
     </script>
     
     <!-- load google youtube api-->
     <script>
-      const getNextVideoId = () => 'w_j7HldwIas';
+      async function getNextVideo() {
+        return new Promise((resolve, reject) => {
+          fetch('http://localhost:3000/videos').then((output) => {
+            output.json().then((output) => {
+              console.log(`Retrieved next video id ${output.url}`)
+              resolve(output);
+            });
+          }).catch((error) => {
+            reject(error);
+          });
+        })
+      }
+      // 'w_j7HldwIas';
       
-      const initialVideo = getNextVideoId();
+      let currentVideo;
 
       function googleApiClientReady() {
-        gapi.client.setApiKey(apiKey);
-        gapi.client.load('youtube', 'v3').then((output) => {
-          getVideoData(initialVideo).then((output) => {
-            updateClipInfo(output.title, output.channelTitle);
+        getNextVideo().then((output) => {
+          currentVideo = output;
+          gapi.client.setApiKey(apiKey);
+          gapi.client.load('youtube', 'v3').then((output) => {
+            getVideoData(currentVideo.url).then((output) => {
+              updateClipInfo(output.title, output.channelTitle);
+            }).catch((error) => {
+              console.log(error);
+            });
           }).catch((error) => {
             console.log(error);
           });
-        }).catch((error) => {
-          console.log(error);
         });
+        
       }
 
-      function getVideoData(videoId) {
+      function getVideoData(id) {
         return new Promise((resolve, reject) => {
           gapi.client.youtube.videos.list({
             part: 'snippet',
-            id: videoId
+            id,
           }).then((output) => {
             const data = JSON.parse(output.body).items[0].snippet;
             resolve(data);
@@ -62,26 +78,27 @@
     </script>
     <script src='https://apis.google.com/js/client.js?onload=googleApiClientReady'></script>
     
-    <script>  
+    <script>
       const nextVideo = async () => {
-        // update previous video lastPlayed field
-
         // get next video id from db
-        const videoId = await getNextVideoId();
-
-        // get video info
-        getVideoData(videoId).then((output) => {
-          // update the ClipInfo text
-          updateClipInfo(output.title, output.channelTitle);
-          console.log(output)
+        getNextVideo().then((output) => {
+          currentVideo = output;
+          // get video info
+          getVideoData(output.url).then((output) => {
+            // update the ClipInfo text
+            updateClipInfo(output.title, output.channelTitle);
+          }).catch((error) => {
+            console.log(error);
+          }).finally(() => { // wqe sill want to play the video even if it fails
+            player.loadVideoById({videoId: output.url, suggestedQuality: 'hd1080'});
+          });
         }).catch((error) => {
-          console.log(error);
-        }).finally(() => {
-          player.loadVideoById({videoId, suggestedQuality: 'hd1080'});
+          // error, restart browser, update status text
         });
       };
 
       const startClip = (event) => {
+        event.target.setPlaybackQuality('hd1080');
         event.target.playVideo();
       };
   
@@ -94,24 +111,45 @@
       // Replace the 'ytplayer' element with an and
       // YouTube player after the API code downloads.
       let player;
-      onYouTubePlayerAPIReady = async () => {
+      function onYouTubePlayerAPIReady() {
         player = new YT.Player('ytplayer', {
-          height: '100%',
-          width: '100%',
-          videoId: initialVideo,
+          height: '1080',
+          width: '1920',
+          videoId: currentVideo.url,
           playerVars: {
-            autoplay: 0,
             vq: 'hd1080',
-            controls: 0,
+            controls: 1,
           },
           events: {
             'onReady': startClip,
             'onStateChange': (event) => {
               if(event.data === YT.PlayerState.ENDED) {
-                nextVideo();
+                // update previous video lastPlayed field
+                fetch('http://localhost:3000/videos',
+                  {
+                    headers: {
+                      'Accept': 'application/json',
+                      'Content-Type': 'application/json'
+                    },
+                    method: "POST",
+                    body: JSON.stringify({_id: currentVideo._id}),
+                 }
+                ).finally(() => {
+                  nextVideo();
+                });
               }
             },
             'onError': (event) => {
+                console.log(event);
+              const code = event.data;
+              if (code === 2) {
+                // invalid parameter
+              } else if (code === 100) {
+                // video removed or private
+              } else if (code === 101 || code === 150) {
+                // video cannot be embeded
+              }
+              nextVideo();
             }
           }
         });
