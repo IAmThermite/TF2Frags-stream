@@ -35,7 +35,7 @@ app.post('/videos', (req, res) => {
 });
 
 app.listen(3000, () => {
-  MongoClient.connect(process.env.DB_HOST, {useNewUrlParser: true, useUnifiedTopology: true}, ( err, client ) => {
+  MongoClient.connect(process.env.DB_URL, {useNewUrlParser: true, useUnifiedTopology: true}, ( err, client ) => {
     if (err) {
       throw new Error(err);
     }
