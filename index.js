@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
 
 app.get('/videos', (req, res) => {
   // least recently played first, then by when they were uploaded
-  db.collection('clips').find({type: 'url'}).sort({lastPlayed: 1, uploadedAt: 1}).limit(1).toArray().then((output) => {
+  db.collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: 1, uploadedAt: 1}).limit(1).toArray().then((output) => {
     res.send(output[0]);
   }).catch((error) => {
     res.send(error)

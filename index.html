@@ -90,7 +90,8 @@
           }).catch((error) => {
             console.log(error);
           }).finally(() => { // wqe sill want to play the video even if it fails
-            player.loadVideoById({videoId: output.url, suggestedQuality: 'hd1080'});
+            player.loadVideoById({videoId: output.code, suggestedQuality: 'hd1080'});
+            player.setPlaybackQuality('default');
           });
         }).catch((error) => {
           // error, restart browser, update status text
@@ -115,10 +116,10 @@
         player = new YT.Player('ytplayer', {
           height: '1080',
           width: '1920',
-          videoId: currentVideo.url,
+          videoId: currentVideo.code,
           playerVars: {
             vq: 'hd1080',
-            controls: 1,
+            controls: 0,
           },
           events: {
             'onReady': startClip,
@@ -140,7 +141,7 @@
               }
             },
             'onError': (event) => {
-                console.log(event);
+              console.log(event);
               const code = event.data;
               if (code === 2) {
                 // invalid parameter
