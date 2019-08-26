@@ -26,8 +26,7 @@
         obs.send('SetTextFreetype2Properties', {
           source: 'ClipInfo',
           text: `${name}\nBy - ${channel}`
-        });
-        console.log('OBS Source updated');
+        }).then(console.log('ClipInfo updated'));
       }
 
       function restartBrowser() {
@@ -43,15 +42,17 @@
       }
 
       function setStatusText(text) {
-        // obs.send('SetTextFreetype2Properties', {
-        //   item: 'StatusText',
-        //   text,
-        // });
+        obs.send('SetTextFreetype2Properties', {
+          source: 'StatusText',
+          text,
+        }).then(console.log('StatusText updated'));
       }
     </script>
     
-    <!-- load google youtube api-->
+    <!-- main functions -->
     <script>
+      let currentVideo;
+      
       function getNextVideo() {
         return new Promise((resolve, reject) => {
           fetch('http://localhost:3000/videos').then((output) => {
@@ -64,28 +65,31 @@
           });
         })
       }
-      // 'w_j7HldwIas';
-      
-      let currentVideo;
 
       function googleApiClientReady() {
         getNextVideo().then((output) => {
           currentVideo = output;
           gapi.client.setApiKey(apiKey);
-          gapi.client.load('youtube', 'v3').then((output) => {
-            getVideoData(currentVideo.code).then((output) => {
-              updateClipInfo(output.title, output.channelTitle);
+          if (currentVideo.url.includes('youtu.be')) {
+            gapi.client.load('youtube', 'v3').then((output) => {
+              getYoutubeVideoData(currentVideo.code).then((output) => {
+                setStatusText(' ');
+                updateClipInfo(output.title, output.channelTitle);
+              }).catch((error) => {
+                updateClipInfo('Unable to get clip info', 'ERROR');
+                console.error(error);
+              });
             }).catch((error) => {
               console.error(error);
             });
-          }).catch((error) => {
-            console.error(error);
-          });
+          } else if(currentVideo.url.includes('twitch.tv')) {
+            // twitch
+          }
         });
         
       }
 
-      function getVideoData(id) {
+      function getYoutubeVideoData(id) {
         return new Promise((resolve, reject) => {
           gapi.client.youtube.videos.list({
             part: 'snippet',
@@ -102,24 +106,36 @@
     <script src='https://apis.google.com/js/client.js?onload=googleApiClientReady'></script>
     
     <script>
+      function updateVideo() {
+        
+      }
+
       function nextVideo() {
         // get next video id from db
         getNextVideo().then((output) => {
           currentVideo = output;
           console.log(output)
-          // get video info
-          getVideoData(output.code).then((output) => {
-            // update the ClipInfo text
-            setStatusText(' ');
-            updateClipInfo(output.title, output.channelTitle);
-          }).catch((error) => {
-            updateClipInfo('Unable to get clip info', 'ERROR');
-            console.error(error);
-            return;
-          }).finally(() => { // wqe sill want to play the video even if it fails
-            player.loadVideoById({videoId: output.code, suggestedQuality: 'hd720'}); // suggested quality doesn't work
-            player.setPlaybackQuality('hd720'); // doesn't seem to force it even when it exists :(
-          });
+          if (currentVideo.url.includes('youtube.com') || currentVideo.url.includes('youtu.be')) {
+            // hide twitch embed
+            // show youtube player
+            // get video info
+            getYoutubeVideoData(output.code).then((output) => {
+              // update the ClipInfo text
+              setStatusText(' ');
+              updateClipInfo(output.title, output.channelTitle);
+            }).catch((error) => {
+              updateClipInfo('Unable to get clip info', 'ERROR');
+              console.error(error);
+              return;
+            }).finally(() => { // wqe sill want to play the video even if it fails
+              player.loadVideoById({videoId: output.code, suggestedQuality: 'hd720'}); // suggested quality doesn't work
+              player.setPlaybackQuality('hd720'); // doesn't seem to force it even when it exists :(
+            });
+          } else if (currentVideo.url.includes('twitch.tv')) {
+            // hide youtube embed
+            // show twitch player
+            // getTwitchVideoData()
+          }
         }).catch((error) => {
           // error, restart browser, update status text
           restartBrowser();
@@ -147,7 +163,7 @@
           videoId: currentVideo.code,
           playerVars: {
             vq: 'hd720',
-            controls: 0,
+            controls: 0
           },
           events: {
             'onReady': startClip,
