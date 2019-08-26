@@ -10,13 +10,17 @@
 
   <body>
     <div id="ytplayer"></div>
-    <script type="text/javascript" src="./node_modules/obs-websocket-js/dist/obs-websocket.min.js"></script>
+    <script type="text/javascript" src='./node_modules/obs-websocket-js/dist/obs-websocket.min.js'></script>
     <script type="text/javascript" src='./config.js'></script>
 
     <!-- obs controller -->
     <script>
       const obs = new OBSWebSocket();
       obs.connect({ address: 'localhost:4444'});
+
+      obs.on('error', err => {
+        console.error('socket error:', err);
+      });
 
       function updateClipInfo(name, channel) {
         obs.send('SetTextFreetype2Properties', {
@@ -25,11 +29,30 @@
         });
         console.log('OBS Source updated');
       }
+
+      function restartBrowser() {
+        obs.send('SetSceneItemProperties', { // hide
+          item: 'Browser',
+          visible: false,
+        }).then(() => {
+          obs.send('SetSceneItemProperties', { //show
+            item: 'Browser',
+            visible: true,
+          });
+        });
+      }
+
+      function setStatusText(text) {
+        // obs.send('SetTextFreetype2Properties', {
+        //   item: 'StatusText',
+        //   text,
+        // });
+      }
     </script>
     
     <!-- load google youtube api-->
     <script>
-      async function getNextVideo() {
+      function getNextVideo() {
         return new Promise((resolve, reject) => {
           fetch('http://localhost:3000/videos').then((output) => {
             output.json().then((output) => {
@@ -50,13 +73,13 @@
           currentVideo = output;
           gapi.client.setApiKey(apiKey);
           gapi.client.load('youtube', 'v3').then((output) => {
-            getVideoData(currentVideo.url).then((output) => {
+            getVideoData(currentVideo.code).then((output) => {
               updateClipInfo(output.title, output.channelTitle);
             }).catch((error) => {
-              console.log(error);
+              console.error(error);
             });
           }).catch((error) => {
-            console.log(error);
+            console.error(error);
           });
         });
         
@@ -73,39 +96,44 @@
           }).catch((error) => {
             reject(error);
           });
-        })
+        });
       }
     </script>
     <script src='https://apis.google.com/js/client.js?onload=googleApiClientReady'></script>
     
     <script>
-      const nextVideo = async () => {
+      function nextVideo() {
         // get next video id from db
         getNextVideo().then((output) => {
           currentVideo = output;
+          console.log(output)
           // get video info
-          getVideoData(output.url).then((output) => {
+          getVideoData(output.code).then((output) => {
             // update the ClipInfo text
+            setStatusText(' ');
             updateClipInfo(output.title, output.channelTitle);
           }).catch((error) => {
-            console.log(error);
+            updateClipInfo('Unable to get clip info', 'ERROR');
+            console.error(error);
+            return;
           }).finally(() => { // wqe sill want to play the video even if it fails
-            player.loadVideoById({videoId: output.code, suggestedQuality: 'hd1080'});
-            player.setPlaybackQuality('default');
+            player.loadVideoById({videoId: output.code, suggestedQuality: 'hd720'}); // suggested quality doesn't work
+            player.setPlaybackQuality('hd720'); // doesn't seem to force it even when it exists :(
           });
         }).catch((error) => {
           // error, restart browser, update status text
+          restartBrowser();
         });
       };
 
-      const startClip = (event) => {
-        event.target.setPlaybackQuality('hd1080');
+      function startClip(event) {
+        event.target.setPlaybackQuality('hd720'); // doesn't seem to force it even when it exists :(
         event.target.playVideo();
       };
   
       // Load the IFrame Player API code asynchronously.
       let tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/player_api";
+      tag.src = 'https://www.youtube.com/player_api';
       let firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
   
@@ -114,11 +142,11 @@
       let player;
       function onYouTubePlayerAPIReady() {
         player = new YT.Player('ytplayer', {
-          height: '1080',
-          width: '1920',
+          height: '720',
+          width: '1280',
           videoId: currentVideo.code,
           playerVars: {
-            vq: 'hd1080',
+            vq: 'hd720',
             controls: 0,
           },
           events: {
