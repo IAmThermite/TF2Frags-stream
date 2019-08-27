@@ -70,7 +70,7 @@
         getNextVideo().then((output) => {
           currentVideo = output;
           gapi.client.setApiKey(apiKey);
-          if (currentVideo.url.includes('youtu.be')) {
+          if (currentVideo.url.includes('youtube.com') || currentVideo.includes('youtu.be')) {
             gapi.client.load('youtube', 'v3').then((output) => {
               getYoutubeVideoData(currentVideo.code).then((output) => {
                 setStatusText(' ');
@@ -106,8 +106,17 @@
     <script src='https://apis.google.com/js/client.js?onload=googleApiClientReady'></script>
     
     <script>
-      function updateVideo() {
-        
+      function updateVideo(body) {
+        return fetch('http://localhost:3000/videos',
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            method: "POST",
+            body: JSON.stringify(body),
+          }
+        );
       }
 
       function nextVideo() {
@@ -170,16 +179,7 @@
             'onStateChange': (event) => {
               if(event.data === YT.PlayerState.ENDED) {
                 // update previous video lastPlayed field
-                fetch('http://localhost:3000/videos',
-                  {
-                    headers: {
-                      'Accept': 'application/json',
-                      'Content-Type': 'application/json'
-                    },
-                    method: "POST",
-                    body: JSON.stringify({_id: currentVideo._id}),
-                 }
-                ).finally(() => {
+                updateVideo({_id: currentVideo._id}).finally(() => {
                   nextVideo();
                 });
               }
@@ -194,7 +194,9 @@
               } else if (code === 101 || code === 150) {
                 // video cannot be embeded
               }
-              nextVideo();
+              updateVideo({_id: currentVideo._id, error: 1}).finally(() => {
+                nextVideo();
+              });
             }
           }
         });

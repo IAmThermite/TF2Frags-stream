@@ -26,7 +26,10 @@ app.get('/videos', (req, res) => {
 
 app.post('/videos', (req, res) => {
   const lastPlayed = new Date().toLocaleString().replace(/\//g, '-').replace(', ', '-');
-  db.collection('clips').updateOne({'_id': new mongo.ObjectID(req.body._id)}, {$set: {lastPlayed}}).then((output) => {
+  console.log(req.body)
+  const error = req.body.error || 0;
+  const reported = req.body.reported || 0;
+  db.collection('clips').updateOne({'_id': new mongo.ObjectID(req.body._id)}, {$set: {lastPlayed, error, reported}}).then((output) => {
     console.log(`Video updated: ${JSON.stringify(output.result)}`);
     res.send(output.result)
   }).catch((error) => {
