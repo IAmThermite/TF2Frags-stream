@@ -9,7 +9,16 @@
   </head>
 
   <body>
-    <div id="ytplayer"></div>
+    <div id="ytplayer" style="display: block"></div>
+    <div id="twitch-embed" style="display: block">
+      <iframe
+        id="twitch-iframe"
+        height="720"
+        width="1280"
+        frameborder="0"
+        scrolling="no">
+    </iframe>
+  </div>
     <script type="text/javascript" src='./node_modules/obs-websocket-js/dist/obs-websocket.min.js'></script>
     <script type="text/javascript" src='./config.js'></script>
 
@@ -52,12 +61,35 @@
     <!-- main functions -->
     <script>
       let currentVideo;
+      let player; // youtube embed
+
+      async function startTwitch() {
+        if (player) {
+          player.clearVideo();
+        }
+        document.getElementById('ytplayer').style.display = 'none';
+
+        document.getElementById('twitch-embed').style.display = 'block';
+        document.getElementById('twitch-iframe').setAttribute('src', `https://clips.twitch.tv/embed?clip=${currentVideo.code}`);
+
+        await new Promise(resolve => setTimeout(resolve, 31000)); // sleep for 31 seconds (bit of a hack but there is no other way currently)
+        updateVideo({_id: currentVideo._id});
+        nextVideo();
+      }
+
+      function startYoutube() {
+        document.getElementById('twitch-embed').style.display = 'none';
+        document.getElementById('twitch-iframe').setAttribute('src', '');
+
+        document.getElementById('ytplayer').style.display = 'block';
+        player.loadVideoById({videoId: currentVideo.code, suggestedQuality: 'hd720'});
+      }
       
       function getNextVideo() {
         return new Promise((resolve, reject) => {
           fetch('http://localhost:3000/videos').then((output) => {
             output.json().then((output) => {
-              console.log(`Retrieved next video id ${output.url}`)
+              console.log(`Retrieved next video ${output.url}`);
               resolve(output);
             });
           }).catch((error) => {
@@ -66,12 +98,31 @@
         })
       }
 
-      function googleApiClientReady() {
+      function getTwitchVideoData(id) {
+        return new Promise((resolve, reject) => {
+          fetch(`https://api.twitch.tv/helix/clips?id=${id}`, {
+            headers: new Headers({
+              'client-id': twitchToken,
+            }),
+          }).then((res) => {
+            return res.json();
+          }).then((data) => {
+            console.log(data.data[0])
+            resolve(data.data[0]);
+          }).catch((err) => {
+            reject(err);
+          });
+        });
+      }
+
+      async function loadInitialClip() {
         getNextVideo().then((output) => {
           currentVideo = output;
           gapi.client.setApiKey(apiKey);
-          if (currentVideo.url.includes('youtube.com') || currentVideo.includes('youtu.be')) {
+          gapi.client.load('youtube', 'v3');
+          if (currentVideo.url.includes('youtube.com') || currentVideo.url.includes('youtu.be')) {
             gapi.client.load('youtube', 'v3').then((output) => {
+              startYoutube();
               getYoutubeVideoData(currentVideo.code).then((output) => {
                 setStatusText(' ');
                 updateClipInfo(output.title, output.channelTitle);
@@ -83,10 +134,16 @@
               console.error(error);
             });
           } else if(currentVideo.url.includes('twitch.tv')) {
-            // twitch
+            startTwitch();
+            getTwitchVideoData(currentVideo.code).then((output) => {
+              setStatusText(' ');
+              updateClipInfo(output.title, output.broadcaster_name);
+              document.getElementById('twitch-iframe').setAttribute('src', output.embed_url);
+            });
+          } else {
+            // invalid clip
           }
         });
-        
       }
 
       function getYoutubeVideoData(id) {
@@ -103,7 +160,7 @@
         });
       }
     </script>
-    <script src='https://apis.google.com/js/client.js?onload=googleApiClientReady'></script>
+    <script src='https://apis.google.com/js/client.js?onload=loadInitialClip'></script>
     
     <script>
       function updateVideo(body) {
@@ -113,7 +170,7 @@
               'Accept': 'application/json',
               'Content-Type': 'application/json'
             },
-            method: "POST",
+            method: 'POST',
             body: JSON.stringify(body),
           }
         );
@@ -123,11 +180,9 @@
         // get next video id from db
         getNextVideo().then((output) => {
           currentVideo = output;
-          console.log(output)
           if (currentVideo.url.includes('youtube.com') || currentVideo.url.includes('youtu.be')) {
-            // hide twitch embed
-            // show youtube player
-            // get video info
+            console.log('LOADING YOUTUBE CLIP');
+            startYoutube();
             getYoutubeVideoData(output.code).then((output) => {
               // update the ClipInfo text
               setStatusText(' ');
@@ -135,19 +190,22 @@
             }).catch((error) => {
               updateClipInfo('Unable to get clip info', 'ERROR');
               console.error(error);
-              return;
-            }).finally(() => { // wqe sill want to play the video even if it fails
+            }).finally(() => { // we sill want to play the video even if it fails
               player.loadVideoById({videoId: output.code, suggestedQuality: 'hd720'}); // suggested quality doesn't work
               player.setPlaybackQuality('hd720'); // doesn't seem to force it even when it exists :(
             });
           } else if (currentVideo.url.includes('twitch.tv')) {
-            // hide youtube embed
-            // show twitch player
-            // getTwitchVideoData()
+            startTwitch();
+            getTwitchVideoData(output.code).then((output) => {
+              setStatusText(' ');
+              updateClipInfo(output.title, output.broadcaster_name);
+            });
           }
         }).catch((error) => {
           // error, restart browser, update status text
+          setStatusText('Error, restarting browser');
           restartBrowser();
+          setStatusText(' ');
         });
       };
 
@@ -162,14 +220,11 @@
       let firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
   
-      // Replace the 'ytplayer' element with an and
-      // YouTube player after the API code downloads.
-      let player;
       function onYouTubePlayerAPIReady() {
         player = new YT.Player('ytplayer', {
           height: '720',
           width: '1280',
-          videoId: currentVideo.code,
+          // videoId: currentVideo.code,
           playerVars: {
             vq: 'hd720',
             controls: 0
@@ -185,7 +240,6 @@
               }
             },
             'onError': (event) => {
-              console.log(event);
               const code = event.data;
               if (code === 2) {
                 // invalid parameter
@@ -194,9 +248,12 @@
               } else if (code === 101 || code === 150) {
                 // video cannot be embeded
               }
-              updateVideo({_id: currentVideo._id, error: 1}).finally(() => {
-                nextVideo();
-              });
+
+              if (!currentVideo.url.includes('twitch.tv')) {
+                updateVideo({_id: currentVideo._id, error: 1}).finally(() => {
+                  nextVideo();
+                });
+              }
             }
           }
         });

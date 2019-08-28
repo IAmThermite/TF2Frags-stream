@@ -29,7 +29,7 @@ app.post('/videos', (req, res) => {
   console.log(req.body)
   const error = req.body.error || 0;
   const reported = req.body.reported || 0;
-  db.collection('clips').updateOne({'_id': new mongo.ObjectID(req.body._id)}, {$set: {lastPlayed, error, reported}}).then((output) => {
+  db.collection('clips').updateOne({'_id': new mongo.ObjectID(req.body._id)}, {$set: {lastPlayed, reported}}).then((output) => {
     console.log(`Video updated: ${JSON.stringify(output.result)}`);
     res.send(output.result)
   }).catch((error) => {
