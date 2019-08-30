@@ -1,7 +1,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const mongo = require('mongodb')
-const MongoClient = mongo.MongoClient;
+const mongo = require('mongodb');
+
+const database = require('./db');
 
 const app = express();
 
@@ -37,12 +38,11 @@ app.post('/videos', (req, res) => {
   });
 });
 
-app.listen(3000, () => {
-  MongoClient.connect(process.env.DB_URL, {useNewUrlParser: true, useUnifiedTopology: true}, ( err, client ) => {
-    if (err) {
-      throw new Error(err);
-    }
-    db = client.db('tf2frags');
+database.connectToServer((err) => {
+  if (err) throw new Error(err);
+  db = database.getDb();
+  require('./twitch'); // load twitch
+  app.listen(3000, () => {
     console.log('app listening on port 3000');
   });
 });
