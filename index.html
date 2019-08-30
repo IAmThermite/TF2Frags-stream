@@ -17,8 +17,8 @@
         width="1280"
         frameborder="0"
         scrolling="no">
-    </iframe>
-  </div>
+      </iframe>
+    </div>
     <script type="text/javascript" src='./node_modules/obs-websocket-js/dist/obs-websocket.min.js'></script>
     <script type="text/javascript" src='./config.js'></script>
 
@@ -32,7 +32,7 @@
       });
 
       function updateClipInfo(name, channel) {
-        obs.send('SetTextFreetype2Properties', {
+        obs.send('SetTextFreetype2Properties', { // need to change to SetTextGDIPlusProperties for Windows
           source: 'ClipInfo',
           text: `${name}\nBy - ${channel}`
         }).then(console.log('ClipInfo updated'));
@@ -51,7 +51,7 @@
       }
 
       function setStatusText(text) {
-        obs.send('SetTextFreetype2Properties', {
+        obs.send('SetTextFreetype2Properties', { // need to change to SetTextGDIPlusProperties for Windows
           source: 'StatusText',
           text,
         }).then(console.log('StatusText updated'));
@@ -72,8 +72,9 @@
         document.getElementById('twitch-iframe').setAttribute('src', `https://clips.twitch.tv/embed?clip=${currentVideo.code}`);
 
         await new Promise(resolve => setTimeout(resolve, 31000)); // sleep for 31 seconds (bit of a hack but there is no other way currently)
-        updateVideo({_id: currentVideo._id});
-        nextVideo();
+        updateVideo({_id: currentVideo._id}).then(() => {
+          nextVideo();
+        });
       }
 
       function startYoutube() {
@@ -91,9 +92,11 @@
               console.log(`Retrieved next video ${output.url}`);
               resolve(output);
             }).catch((error) => {
+              // probably need to stop
               reject(error)
             });
           }).catch((error) => {
+            // probably need to stop
             reject(error);
           });
         })
@@ -109,8 +112,9 @@
             return res.json();
           }).then((data) => {
             resolve(data.data[0]);
-          }).catch((err) => {
-            reject(err);
+          }).catch((error) => {
+            // TODO: find out if the type of error is defined (not found etc.)
+            reject(error);
           });
         });
       }
@@ -124,6 +128,7 @@
             const data = JSON.parse(output.body).items[0].snippet;
             resolve(data);
           }).catch((error) => {
+            // TODO: find out if the type of error is defined (not found etc.)
             reject(error);
           });
         });
@@ -150,19 +155,22 @@
         getNextVideo().then((output) => {
           currentVideo = output;
           if (output.url.includes('youtube.com') || output.url.includes('youtu.be')) {
-            console.log('LOADING YOUTUBE CLIP');
             startYoutube();
             getYoutubeVideoData(output.code).then((output) => {
               // update the ClipInfo text
               updateClipInfo(output.title, output.channelTitle);
             }).catch((error) => {
-              updateClipInfo('Unable to get clip info', 'ERROR');
               console.error(error);
+              updateClipInfo('Unable to get clip info', 'ERROR');
             });
           } else if (output.url.includes('twitch.tv')) {
             startTwitch();
             getTwitchVideoData(output.code).then((output) => {
+              // update the ClipInfo text
               updateClipInfo(output.title, output.broadcaster_name);
+            }).catch((error) => {
+              console.error(error);
+              updateClipInfo('Unable to get clip info', 'ERROR');
             });
           } else {
             // update video with error
@@ -193,7 +201,7 @@
           width: '1280',
           playerVars: {
             vq: 'hd720',
-            controls: 1,
+            controls: 0,
           },
           events: {
              // This is the main entry point. We need to ensure that the player has fully loaded before we begin
