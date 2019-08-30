@@ -7,7 +7,7 @@ const options = {
   },
   indentity: {
     username: 'TF2Frags',
-    password: 'oauth:7i1p0expo008kurbyotfzi8k949az2',
+    password: process.env.TWITCH_TOKEN,
   },
   channels: ['TF2Frags'],
 };
