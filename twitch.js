@@ -1,4 +1,5 @@
 const TwitchJS = require('tmi.js');
+const mongo = require('mongodb');
 
 const db = require('./db').getDb();
 
@@ -18,17 +19,34 @@ const client = new TwitchJS.client(options);
 
 const actions = {
   'skip': () => {
-    console.log('skip');
+    client.say('tf2frags', 'Skipping clip');
+    // skip clip
   },
   'report': (params) => {
+    let previous = 0;
     if(params) {
       if(params[0] === 'previous' || params[0] === 'prev') {
-        // update most recently played clip
-        return;
+        previous = 1;
       }
     }
     // update current clip
-    console.log('report');
+    db.collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: current}).limit(1).toArray().then((output) => {
+      if (output[0]) {
+        db.collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {reported: 1}}).then((output) => {
+          client.say('tf2frags', 'Thanks, clip reported.');
+        }).catch((error) => {
+          console.error(error);
+          client.say('tf2frags', 'Could not report clip! Contact developer!');
+        });
+      } else {
+        console.error('Could not find clip');
+        console.log(output);
+        client.say('tf2frags', 'Could not report clip! Contact developer!');
+      }
+    }).catch((error) => {
+      console.error(error);
+      client.say('tf2frags', 'Could not report clip! Contact developer!');
+    });
   },
   'help': () => {
     client.say('tf2frags', 'Commands: !skip -> skip current clip, !report [previous] -> report current clip or previous clip, !help/!commands -> this message, !upload -> show url to upload clips');
@@ -44,7 +62,6 @@ const actions = {
 client.on('chat', (channel, userstate, message, self) => {
   if (self) return; // don't care about own messages
   if(message.startsWith('!')) {
-
     const command = message.substring(1, message.lenght).trim().split(' ')[0].replace('!', ' ');
     const params = message.substring(message.indexOf(' ') + 1).trim().split(' ');
 

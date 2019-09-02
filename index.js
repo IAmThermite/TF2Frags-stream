@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
 
 app.get('/videos', (req, res) => {
   // least recently played first, then by when they were uploaded
-  db.collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: 1, uploadedAt: 1}).limit(1).toArray().then((output) => {
+  db.collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: 1}).limit(1).toArray().then((output) => {
     res.send(output[0]);
   }).catch((error) => {
     res.send(error)
@@ -30,7 +30,7 @@ app.post('/videos', (req, res) => {
   console.log(req.body)
   const error = req.body.error || 0;
   const reported = req.body.reported || 0;
-  db.collection('clips').updateOne({'_id': new mongo.ObjectID(req.body._id)}, {$set: {lastPlayed, reported}}).then((output) => {
+  db.collection('clips').updateOne({'_id': new mongo.ObjectID(req.body._id)}, {$set: {lastPlayed, error, reported}}).then((output) => {
     console.log(`Video updated: ${JSON.stringify(output.result)}`);
     res.send(output.result)
   }).catch((error) => {
