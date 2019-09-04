@@ -31,15 +31,25 @@
         console.error('socket error:', err);
       });
 
+      async function stopStream() {
+        obs.send('SetCurrentScene', {'scene-name': 'End'});
+        await new Promise(resolve => setTimeout(resolve, 30000)); // sleep for 30 seconds
+        obs.send('StopStreaming');
+      }
+
+      function setScene(sceneName) {
+        obs.send('SetCurrentScene', {'scene-name': sceneName});        
+      }
+
       function updateClipInfo(name, channel) {
-        obs.send('SetTextFreetype2Properties', { // need to change to SetTextGDIPlusProperties for Windows
+        return obs.send('SetTextFreetype2Properties', { // need to change to SetTextGDIPlusProperties for Windows
           source: 'ClipInfo',
           text: `${name}\nBy - ${channel}`
         }).then(console.log('ClipInfo updated'));
       }
 
       function restartBrowser() {
-        obs.send('SetSceneItemProperties', { // hide
+        return obs.send('SetSceneItemProperties', { // hide
           item: 'Browser',
           visible: false,
         }).then(() => {
@@ -50,8 +60,8 @@
         });
       }
 
-      function setStatusText(text) {
-        obs.send('SetTextFreetype2Properties', { // need to change to SetTextGDIPlusProperties for Windows
+      function updateStatusText(text) {
+        return obs.send('SetTextFreetype2Properties', { // need to change to SetTextGDIPlusProperties for Windows
           source: 'StatusText',
           text,
         }).then(console.log('StatusText updated'));
@@ -60,6 +70,7 @@
     
     <!-- main functions -->
     <script>
+      let errorCount = 0;
       let currentVideo;
       let player; // youtube embed
 
@@ -72,8 +83,11 @@
         document.getElementById('twitch-iframe').setAttribute('src', `https://clips.twitch.tv/embed?clip=${currentVideo.code}`);
 
         await new Promise(resolve => setTimeout(resolve, 31000)); // sleep for 31 seconds (bit of a hack but there is no other way currently)
-        updateVideo({_id: currentVideo._id}).then(() => {
+        updateClip({_id: currentVideo._id}).then(() => {
           nextVideo();
+        }).catch((error) => {
+          updateStatusText('Could not update clip');
+          // probably need to exit here
         });
       }
 
@@ -87,7 +101,7 @@
       
       function getNextVideo() {
         return new Promise((resolve, reject) => {
-          fetch('http://localhost:3000/videos').then((output) => {
+          fetch('http://localhost:3000/clips').then((output) => {
             output.json().then((output) => {
               console.log(`Retrieved next video ${output.url}`);
               resolve(output);
@@ -125,10 +139,14 @@
             part: 'snippet',
             id,
           }).then((output) => {
-            const data = JSON.parse(output.body).items[0].snippet;
-            resolve(data);
+            if (output.result.items.length === 0) {
+              reject({});
+            } else {
+              resolve(output.result.items[0].snippet);
+            }
           }).catch((error) => {
             // TODO: find out if the type of error is defined (not found etc.)
+            // can probably update with error and skip video
             reject(error);
           });
         });
@@ -137,8 +155,8 @@
     <script src='https://apis.google.com/js/client.js'></script>
     
     <script>
-      function updateVideo(body) {
-        return fetch('http://localhost:3000/videos',
+      function updateClip(body) {
+        return fetch('http://localhost:3000/clips',
           {
             headers: {
               'Accept': 'application/json',
@@ -150,9 +168,16 @@
         );
       }
 
-      function nextVideo() {
+      async function nextVideo() {
+        setScene('View');
+        updateStatusText(' ');
         // get next video id from db
         getNextVideo().then((output) => {
+          errorCount = 0;
+          if(!output) {
+            updateStatusText('No clips found, exiting');
+            throw new Error('No clips found');
+          }
           currentVideo = output;
           if (output.url.includes('youtube.com') || output.url.includes('youtu.be')) {
             startYoutube();
@@ -175,15 +200,27 @@
           } else {
             // update video with error
             console.log('ERROR, invalid video');
-            updateVideo({_id: currentVideo._id, error: 1}).finally(() => {
+            updateClip({_id: currentVideo._id, error: 1}).finally(() => {
               nextVideo();
             });
           }
-        }).catch((error) => {
-          console.log(error);
+        }).catch(async (error) => {
+          setScene('Error');
+          errorCount += 1;
+          console.error(error);
+          console.error(errorCount);
           // error, restart browser, update status text
-          setStatusText('Error, restarting browser');
-          // restartBrowser();
+          if (errorCount === 10) {
+            updateStatusText('Failed to reconnect\nexiting stream');
+            await new Promise(resolve => setTimeout(resolve, 5000)); // sleep for 5 seconds
+            stopStream(); // exit stream
+          } else {
+            updateStatusText('Error, trying to reconnect');
+            await new Promise(resolve => setTimeout(resolve, 2000)); // sleep for 2 seconds
+            restartBrowser().finally(() => {
+              nextVideo();
+            });
+          }
         });
       };
   
@@ -211,23 +248,23 @@
             'onStateChange': (event) => {
               if(event.data === YT.PlayerState.ENDED) {
                 // update previous video lastPlayed field
-                updateVideo({_id: currentVideo._id}).finally(() => {
+                updateClip({_id: currentVideo._id}).finally(() => {
                   nextVideo();
                 });
               }
             },
             'onError': (event) => {
-              console.log(event);
               const code = event.data;
               if (code === 2) {
                 // invalid parameter
               } else if (code === 100) {
                 // video removed or private
-                updateVideo({_id: currentVideo._id, error: 1});
               } else if (code === 101 || code === 150) {
                 // video cannot be embeded
-                updateVideo({_id: currentVideo._id, error: 1});
               }
+              console.error(event);
+              updateClip({_id: currentVideo._id, error: 1});
+              nextVideo();
             }
           }
         });

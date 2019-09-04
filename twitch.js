@@ -72,7 +72,7 @@ client.on('chat', (channel, userstate, message, self) => {
 });
 
 client.connect().then(() => {
-  console.log('connected to twitch');
+  console.log('Connected to twitch');
 }).catch((err) => {
   throw new Error(err);
 });
