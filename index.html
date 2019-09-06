@@ -27,10 +27,6 @@
       const obs = new OBSWebSocket();
       obs.connect({ address: 'localhost:4444'});
 
-      obs.on('error', err => {
-        console.error('socket error:', err);
-      });
-
       function setScene(sceneName) {
         obs.send('SetCurrentScene', {'scene-name': sceneName});        
       }
@@ -172,7 +168,6 @@
       }
 
       async function nextVideo() {
-        setScene('View');
         updateStatusText(' ');
         // get next video id from db
         getNextVideo().then((output) => {

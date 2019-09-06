@@ -12,6 +12,7 @@ module.exports = {
 
   stopStream: async () => {
     console.log('Stopping stream');
+    await obs.send('SetSceneItemProperties', {'scene-name': 'View', item: 'Browser', visible: false});
     await obs.send('SetCurrentScene', {'scene-name': 'End'}); // switch to waiting scene
     await new Promise(resolve => setTimeout(resolve, 10000)); // sleep for 10 sec
     obs.send('StopStreaming');
@@ -37,7 +38,7 @@ obs.on('StreamStarted', async (data) => {
   obs.send('SetTextFreetype2Properties', {source: 'StatusText', text: ' '}); // clear status text (change to gdiplus for windows)
   console.log('Stream started');
   await new Promise(resolve => setTimeout(resolve, 60000)); // sleep for 60 seconds
-  obs.send('SetCurrentScene', {'scene-name': 'View'}); // main view scene
+  await obs.send('SetCurrentScene', {'scene-name': 'View'}); // main view scene
   obs.send('SetSceneItemProperties', {'scene-name': 'View', item: 'Browser', visible: true});
   console.log('Browser visible');
 });
