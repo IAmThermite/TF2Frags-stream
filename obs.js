@@ -7,7 +7,6 @@ module.exports = {
   startStream: async () => {
     await obs.send('SetCurrentScene', {'scene-name': 'Waiting'}); // switch to waiting scene
     obs.send('StartStreaming');
-    console.log('Starting stream');
   },
 
   stopStream: async () => {
