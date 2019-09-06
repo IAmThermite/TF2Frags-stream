@@ -2,6 +2,7 @@ const TwitchJS = require('tmi.js');
 const mongo = require('mongodb');
 
 const db = require('./db').getDb();
+const obs = require('./obs');
 
 const options = {
   channels: ['#tf2frags'],
@@ -20,7 +21,29 @@ const client = new TwitchJS.client(options);
 const actions = {
   'skip': () => {
     client.say('tf2frags', 'Skipping clip');
-    // skip clip
+    // update clip
+    db.collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: 1}).limit(1).toArray().then((output) => {
+      if (output[0]) {
+        db.collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {
+          lastPlayed: new Date().toLocaleString().replace(/\//g, '-').replace(', ', '-')
+        }}).then((output) => {
+          client.say('tf2frags', 'Thanks, clip reported.');
+        }).catch((error) => {
+          console.error(error);
+          client.say('tf2frags', 'Could not report clip! Contact developer!');
+        }).finally(() => {
+          // restart browser
+          obs.restartBrowser();
+        });
+      } else {
+        console.log(output);
+        console.error('Could not find clip');
+        client.say('tf2frags', 'Could not skip clip! Contact developer!');
+      }
+    }).catch((error) => {
+      console.error(error);
+      client.say('tf2frags', 'Could not skip clip! Contact developer!');
+    });
   },
   'report': (params) => {
     let previous = 0;

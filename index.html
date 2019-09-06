@@ -31,14 +31,14 @@
         console.error('socket error:', err);
       });
 
-      async function stopStream() {
-        obs.send('SetCurrentScene', {'scene-name': 'End'});
-        await new Promise(resolve => setTimeout(resolve, 30000)); // sleep for 30 seconds
-        obs.send('StopStreaming');
-      }
-
       function setScene(sceneName) {
         obs.send('SetCurrentScene', {'scene-name': sceneName});        
+      }
+
+      async function stopStream() {
+        setScene('End');
+        await new Promise(resolve => setTimeout(resolve, 30000)); // sleep for 30 seconds
+        obs.send('StopStreaming');
       }
 
       function updateClipInfo(name, channel) {
@@ -125,9 +125,13 @@
           }).then((res) => {
             return res.json();
           }).then((data) => {
-            resolve(data.data[0]);
+            if (!data.data[0]) {
+              resolve(undefined);
+            } else {
+              resolve(data.data[0]);
+            }
           }).catch((error) => {
-            // TODO: find out if the type of error is defined (not found etc.)
+            console.log(error);
             reject(error);
           });
         });
@@ -140,13 +144,12 @@
             id,
           }).then((output) => {
             if (output.result.items.length === 0) {
-              reject({});
+              resolve(undefined); // not found
             } else {
               resolve(output.result.items[0].snippet);
             }
           }).catch((error) => {
-            // TODO: find out if the type of error is defined (not found etc.)
-            // can probably update with error and skip video
+            console.log(error);
             reject(error);
           });
         });
@@ -174,32 +177,49 @@
         // get next video id from db
         getNextVideo().then((output) => {
           errorCount = 0;
-          if(!output) {
+          if (!output) {
             updateStatusText('No clips found, exiting');
-            throw new Error('No clips found');
+            stopStream();
           }
           currentVideo = output;
           if (output.url.includes('youtube.com') || output.url.includes('youtu.be')) {
-            startYoutube();
             getYoutubeVideoData(output.code).then((output) => {
-              // update the ClipInfo text
-              updateClipInfo(output.title, output.channelTitle);
+              if (!output) { // undefined if doesn't exist
+                console.log('Clip does not exist, skipping');
+                updateClip({_id: currentVideo._id, error: 1}).then(() => {
+                  nextVideo();
+                });
+              } else {
+                startYoutube();
+                updateClipInfo(output.title, output.channelTitle);
+              }
             }).catch((error) => {
-              console.error(error);
+              console.error(error)
+              // check here for gapi undefined in which case dont error
+              updateClip({_id: currentVideo._id, error: 1}).then(() => {
+                nextVideo();
+              });
               updateClipInfo('Unable to get clip info', 'ERROR');
             });
           } else if (output.url.includes('twitch.tv')) {
-            startTwitch();
             getTwitchVideoData(output.code).then((output) => {
-              // update the ClipInfo text
-              updateClipInfo(output.title, output.broadcaster_name);
+              if(!output) { // undefined when clip doesnt exist
+                console.log('Clip does not exist, skipping');
+                updateClip({_id: currentVideo._id, error: 1}).then(() => {
+                  nextVideo();
+                });
+              } else {
+                // update the ClipInfo text
+                startTwitch();
+                updateClipInfo(output.title, output.broadcaster_name);
+              }
             }).catch((error) => {
-              console.error(error);
+              console.error(error)
               updateClipInfo('Unable to get clip info', 'ERROR');
             });
           } else {
             // update video with error
-            console.log('ERROR, invalid video');
+            console.error('invalid video');
             updateClip({_id: currentVideo._id, error: 1}).finally(() => {
               nextVideo();
             });
@@ -207,8 +227,6 @@
         }).catch(async (error) => {
           setScene('Error');
           errorCount += 1;
-          console.error(error);
-          console.error(errorCount);
           // error, restart browser, update status text
           if (errorCount === 10) {
             updateStatusText('Failed to reconnect\nexiting stream');
@@ -248,7 +266,7 @@
             'onStateChange': (event) => {
               if(event.data === YT.PlayerState.ENDED) {
                 // update previous video lastPlayed field
-                updateClip({_id: currentVideo._id}).finally(() => {
+                updateClip({_id: currentVideo._id}).then(() => {
                   nextVideo();
                 });
               }
@@ -262,9 +280,9 @@
               } else if (code === 101 || code === 150) {
                 // video cannot be embeded
               }
-              console.error(event);
-              updateClip({_id: currentVideo._id, error: 1});
-              nextVideo();
+              // console.error('Youtube Player Error');
+              // console.error(event);
+              // updateClip({_id: currentVideo._id, error: 1});
             }
           }
         });
