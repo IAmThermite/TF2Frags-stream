@@ -2,6 +2,14 @@
 
 ### Preface
 
-Here is the code for the TF2Frags.net stream controller. Some of it is a mess. I wouldn't recommend trying to set it up/modify too much as it is very fragile with very little error handling (will be added eventually don't worry!)
+Here is the code for the TF2Frags.net stream controller. It handles automatically starting the stream and handles errors in the clips. It handles the Twitch bot as well.
 
 The `index.html` file is served up by the `express` server and is used in a Browser Source in OBS (url localhost:3000).
+
+### Limitations
+
+Due to the way Twitch handles clips, there is no way that they can be controlled like the YouTube videos can be controlled. They are dissimilar from regular twitch vods (for some reason!) so cannot be controlled as precicely as YouTube clips. There is a 30 sec max time on Twitch clips and then the next clip will be loaded regardless of whether it is actually finished or not (default clips duration is 28sec). YouTube videos must be [embedable](https://support.google.com/youtube/answer/171780?hl=en) (on by default) as well.
+
+### Known Bugs
+
+Sometimes it decides to randomly error out the first video on start. This is an issue with the YouTube API sometimes loading in late and throwing an error when the clip info is being retrieved. Should be a pretty simple fix however, but will keep looking into it.
