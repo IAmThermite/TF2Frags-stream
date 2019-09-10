@@ -60,6 +60,9 @@ const actions = {
         }).catch((error) => {
           console.error(error);
           client.say('tf2frags', 'Could not report clip! Contact developer!');
+        }).finally(() => { // skip the clip as well
+          // restart browser
+          obs.restartBrowser();
         });
       } else {
         console.error('Could not find clip');
