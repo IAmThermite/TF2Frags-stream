@@ -82,6 +82,22 @@ const actions = {
   },
   'upload': () => {
     client.say('tf2frags', 'Visit https://tf2frags.net to upload your own clips!');
+  },
+  'endStream': (params, userstate) => {
+    if(userstate.badges.broadcaster === '1') {
+      obs.stopStream();
+      client.say('tf2frags', 'Stream is ending. Thanks for watching!');
+    } else {
+      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
+    }
+  },
+  'startStream': (params, userstate) => {
+    if(userstate.badges.broadcaster === '1') {
+      obs.startStream();
+      client.say('tf2frags', 'Stream is starting...');
+    } else {
+      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
+    }
   }
 }
 
@@ -92,7 +108,7 @@ client.on('chat', (channel, userstate, message, self) => {
     const params = message.substring(message.indexOf(' ') + 1).trim().split(' ');
 
     if(actions[command]) {
-      actions[command](params);
+      actions[command](params, userstate);
     }
   }
 });
