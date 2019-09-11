@@ -18,8 +18,23 @@ const options = {
 
 const client = new TwitchJS.client(options);
 
+// Wait for 10 sec before being able to skip again
+let rateLimit = false;
+const timeOut = () => {
+  rateLimit = true
+  setTimeout(() => {
+    rateLimit
+  }, 10000);
+}
+
 const actions = {
   'skip': () => {
+    if (rateLimit) {
+      client.say('tf2frags', 'Please wait at least 10 seconds before issuing that command');
+      return;
+    }
+    timeOut();
+    
     client.say('tf2frags', 'Skipping clip');
     // update clip
     fetch(`${process.env.API_URL}/clips/current`, {
@@ -38,16 +53,22 @@ const actions = {
       });
     }).then((output) => output.json()).then((output) => {
       console.log(`Clip updated ${JSON.stringify(output)}`);
-      client.say('tf2frags', 'Thanks, clip reported.');
+      client.say('tf2frags', 'Clip is being skipped...');
     }).catch((error) => {
       console.error(error);
-      client.say('tf2frags', 'Could not report clip! Contact developer!');
+      client.say('tf2frags', 'Could not skip clip! Contact developer!');
     }).finally(() => {
       // restart browser
       obs.restartBrowser();
     });
   },
   'report': (params) => {
+    if (rateLimit) {
+      client.say('tf2frags', 'Please wait at least 10 seconds before issuing that command');
+      return;
+    }
+    timeOut();
+
     let previous = 0;
     if(params) {
       if(params[0] === 'previous' || params[0] === 'prev') {
