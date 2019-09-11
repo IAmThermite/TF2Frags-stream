@@ -14,6 +14,7 @@ app.get('/', (req, res) => {
 
 
 app.listen(3000, () => {
+  require('./twitch');
   obs.connect().then(() => {
     console.log('Connected to OBS');
     obs.startStream();

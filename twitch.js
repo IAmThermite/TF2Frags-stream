@@ -1,7 +1,7 @@
 const TwitchJS = require('tmi.js');
 const mongo = require('mongodb');
+const fetch = require('node-fetch');
 
-const db = require('./db')
 const obs = require('./obs');
 
 const options = {
@@ -22,27 +22,29 @@ const actions = {
   'skip': () => {
     client.say('tf2frags', 'Skipping clip');
     // update clip
-    db.getDb().collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: 1}).limit(1).toArray().then((output) => {
-      if (output[0]) {
-        db.getDb().collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {
-          lastPlayed: new Date().toLocaleString().replace(/\//g, '-').replace(', ', '-')
-        }}).then((output) => {
-          client.say('tf2frags', 'Thanks, clip reported.');
-        }).catch((error) => {
-          console.error(error);
-          client.say('tf2frags', 'Could not report clip! Contact developer!');
-        }).finally(() => {
-          // restart browser
-          obs.restartBrowser();
-        });
-      } else {
-        console.log(output);
-        console.error('Could not find clip');
-        client.say('tf2frags', 'Could not skip clip! Contact developer!');
-      }
+    fetch(`${process.env.API_URL}/clips/current`, {
+      headers: new fetch.Headers({
+        'Accept': 'application/json',
+        'Authorization': process.env.API_KEY,
+      }),
+    }).then((output) => output.json()).then((output) => {
+      return fetch(`${process.env.API_URL}/clips/${output._id}`, {
+        method: 'POST',
+        headers: new fetch.Headers({
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': process.env.API_KEY,
+        }),
+      });
+    }).then((output) => output.json()).then((output) => {
+      console.log(`Clip updated ${JSON.stringify(output)}`);
+      client.say('tf2frags', 'Thanks, clip reported.');
     }).catch((error) => {
       console.error(error);
-      client.say('tf2frags', 'Could not skip clip! Contact developer!');
+      client.say('tf2frags', 'Could not report clip! Contact developer!');
+    }).finally(() => {
+      // restart browser
+      obs.restartBrowser();
     });
   },
   'report': (params) => {
@@ -53,27 +55,30 @@ const actions = {
       }
     }
     // update current clip
-    db.getDb().collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: !preivious}).limit(1).toArray().then((output) => {
-      if (output[0]) {
-        db.getDb().collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {reported: 1}}).then((output) => {
-          client.say('tf2frags', 'Thanks, clip reported.');
-        }).catch((error) => {
-          console.error(error);
-          client.say('tf2frags', 'Could not report clip! Contact developer!');
-        }).finally(() => { // skip the clip if needed
-          if (previous) {
-            // restart browser
-            obs.restartBrowser();
-          }
-        });
-      } else {
-        console.error('Could not find clip');
-        console.log(output);
-        client.say('tf2frags', 'Could not report clip! Contact developer!');
-      }
+    fetch(`${process.env.API_URL}/clips/${previous ? 'previous' : 'current'}`, {
+      headers: new fetch.Headers({
+        'Accept': 'application/json',
+        'Authorization': process.env.API_KEY,
+      })
+    }).then((output) => output.json()).then((output) => {
+      return fetch(`${process.env.API_URL}/clips/${output._id}`, {
+        method: 'POST',
+        headers: new fetch.Headers({
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': process.env.API_KEY,
+        }),
+        body: JSON.stringify({reported: 1}),
+      });
+    }).then((output) => output.json()).then((output) => {
+      console.log(`Clip updated ${JSON.stringify(output)}`);
+      client.say('tf2frags', 'Thanks, clip reported.');
     }).catch((error) => {
       console.error(error);
       client.say('tf2frags', 'Could not report clip! Contact developer!');
+    }).finally(() => {
+      // restart browser
+      obs.restartBrowser();
     });
   },
   'help': () => {
@@ -86,6 +91,14 @@ const actions = {
     client.say('tf2frags', 'Visit https://tf2frags.net to upload your own clips!');
   },
   'endStream': (params, userstate) => {
+    if(userstate.badges.broadcaster === '1') {
+      obs.stopStream();
+      client.say('tf2frags', 'Stream is ending. Thanks for watching!');
+    } else {
+      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
+    }
+  },
+  'stopStream': (params, userstate) => {
     if(userstate.badges.broadcaster === '1') {
       obs.stopStream();
       client.say('tf2frags', 'Stream is ending. Thanks for watching!');
