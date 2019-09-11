@@ -36,7 +36,7 @@ obs.on('StreamStarted', async (data) => {
   obs.send('SetSceneItemProperties', {'scene-name': 'View', item: 'Browser', visible: false});
   obs.send('SetTextGDIPlusProperties', {source: 'StatusText', text: ' '}); // clear status text (change to freetype2 for Linux)
   console.log('Stream started');
-  await new Promise(resolve => setTimeout(resolve, 60000)); // sleep for 60 seconds
+  await new Promise(resolve => setTimeout(resolve, 300000)); // sleep for 5 min
   await obs.send('SetCurrentScene', {'scene-name': 'View'}); // main view scene
   obs.send('SetSceneItemProperties', {'scene-name': 'View', item: 'Browser', visible: true});
   console.log('Browser visible');
