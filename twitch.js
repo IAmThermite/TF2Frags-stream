@@ -1,7 +1,7 @@
 const TwitchJS = require('tmi.js');
 const mongo = require('mongodb');
 
-const db = require('./db').getDb();
+const db = require('./db')
 const obs = require('./obs');
 
 const options = {
@@ -22,9 +22,9 @@ const actions = {
   'skip': () => {
     client.say('tf2frags', 'Skipping clip');
     // update clip
-    db.collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: 1}).limit(1).toArray().then((output) => {
+    db.getDb().collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: 1}).limit(1).toArray().then((output) => {
       if (output[0]) {
-        db.collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {
+        db.getDb().collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {
           lastPlayed: new Date().toLocaleString().replace(/\//g, '-').replace(', ', '-')
         }}).then((output) => {
           client.say('tf2frags', 'Thanks, clip reported.');
@@ -53,9 +53,9 @@ const actions = {
       }
     }
     // update current clip
-    db.collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: current}).limit(1).toArray().then((output) => {
+    db.getDb().collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: current}).limit(1).toArray().then((output) => {
       if (output[0]) {
-        db.collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {reported: 1}}).then((output) => {
+        db.getDb().collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {reported: 1}}).then((output) => {
           client.say('tf2frags', 'Thanks, clip reported.');
         }).catch((error) => {
           console.error(error);
@@ -98,6 +98,12 @@ const actions = {
     } else {
       client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
     }
+  },
+  'restartClip': (params, userstate) => {
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster === '1')) {
+      obs.restartBrowser();
+      client.say('tf2frags', 'Restarting clip...');
+    }
   }
 }
 
@@ -114,7 +120,7 @@ client.on('chat', (channel, userstate, message, self) => {
 });
 
 client.connect().then(() => {
-  console.log('Connected to twitch');
+  console.log('Connected to Twitch');
 }).catch((err) => {
-  throw new Error(err);
+  console.log('Could not connect to Twitch');
 });
