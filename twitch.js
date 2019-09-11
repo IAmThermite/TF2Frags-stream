@@ -53,16 +53,18 @@ const actions = {
       }
     }
     // update current clip
-    db.getDb().collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: current}).limit(1).toArray().then((output) => {
+    db.getDb().collection('clips').find({type: 'url', error: 0, reported: 0}).sort({lastPlayed: !preivious}).limit(1).toArray().then((output) => {
       if (output[0]) {
         db.getDb().collection('clips').updateOne({'_id': new mongo.ObjectID(output[0]._id)}, {$set: {reported: 1}}).then((output) => {
           client.say('tf2frags', 'Thanks, clip reported.');
         }).catch((error) => {
           console.error(error);
           client.say('tf2frags', 'Could not report clip! Contact developer!');
-        }).finally(() => { // skip the clip as well
-          // restart browser
-          obs.restartBrowser();
+        }).finally(() => { // skip the clip if needed
+          if (previous) {
+            // restart browser
+            obs.restartBrowser();
+          }
         });
       } else {
         console.error('Could not find clip');
