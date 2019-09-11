@@ -38,7 +38,7 @@
       }
 
       function updateClipInfo(name, channel) {
-        return obs.send('SetTextFreetype2Properties', { // need to change to SetTextGDIPlusProperties for Windows
+        return obs.send('SetTextGDIPlusProperties', { // need to change to SetTextFreetype2Properties for Linux
           source: 'ClipInfo',
           text: `${name}\nBy - ${channel}`
         }).then(console.log('ClipInfo updated'));
@@ -57,7 +57,7 @@
       }
 
       function updateStatusText(text) {
-        return obs.send('SetTextFreetype2Properties', { // need to change to SetTextGDIPlusProperties for Windows
+        return obs.send('SetTextGDIPlusProperties', { // need to change to SetTextFreetype2Properties for Linux
           source: 'StatusText',
           text,
         }).then(console.log('StatusText updated'));
