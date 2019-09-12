@@ -23,7 +23,7 @@ let rateLimit = false;
 const timeOut = () => {
   rateLimit = true
   setTimeout(() => {
-    rateLimit
+    rateLimit = false;
   }, 10000);
 }
 
@@ -52,7 +52,7 @@ const actions = {
         }),
       });
     }).then((output) => output.json()).then((output) => {
-      console.log(`Clip updated ${JSON.stringify(output)}`);
+      console.log('Skipped clip');
       client.say('tf2frags', 'Clip is being skipped...');
     }).catch((error) => {
       console.error(error);
@@ -92,7 +92,7 @@ const actions = {
         body: JSON.stringify({reported: 1}),
       });
     }).then((output) => output.json()).then((output) => {
-      console.log(`Clip updated ${JSON.stringify(output)}`);
+      console.log('Clip Reported');
       client.say('tf2frags', 'Thanks, clip reported.');
     }).catch((error) => {
       console.error(error);

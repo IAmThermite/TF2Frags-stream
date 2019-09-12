@@ -13,20 +13,22 @@ module.exports = {
     console.log('Stopping stream');
     await obs.send('SetSceneItemProperties', {'scene-name': 'View', item: 'Browser', visible: false});
     await obs.send('SetCurrentScene', {'scene-name': 'End'}); // switch to waiting scene
-    await new Promise(resolve => setTimeout(resolve, 10000)); // sleep for 10 sec
+    await new Promise(resolve => setTimeout(resolve, 30000)); // sleep for 30 sec
     obs.send('StopStreaming');
   },
 
-  restartBrowser: async () => {
-    await obs.send('SetSceneItemProperties', {
-      'scene-name': 'view',
-      item: 'Browser',
-      visible: false,
-    });
+  restartBrowser: () => {
     obs.send('SetSceneItemProperties', {
-      'scene-name': 'view',
+      'scene-name': 'View',
       item: 'Browser',
       visible: false,
+    }).then(async () => {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // sleep for 1 sec
+      obs.send('SetSceneItemProperties', {
+        'scene-name': 'View',
+        item: 'Browser',
+        visible: true,
+      });
     });
   },
 };
@@ -34,10 +36,12 @@ module.exports = {
 obs.on('StreamStarted', async (data) => {
   console.log('Starting stream')
   obs.send('SetSceneItemProperties', {'scene-name': 'View', item: 'Browser', visible: false});
+  obs.send('SetSceneItemProperties', {'scene-name': 'Waiting', item: 'Timer', visible: false});
   obs.send('SetTextGDIPlusProperties', {source: 'StatusText', text: ' '}); // clear status text (change to freetype2 for Linux)
   console.log('Stream started');
   await new Promise(resolve => setTimeout(resolve, 300000)); // sleep for 5 min
   await obs.send('SetCurrentScene', {'scene-name': 'View'}); // main view scene
   obs.send('SetSceneItemProperties', {'scene-name': 'View', item: 'Browser', visible: true});
+  obs.send('SetSceneItemProperties', {'scene-name': 'Waiting', item: 'Timer', visible: true});
   console.log('Browser visible');
 });
