@@ -54,6 +54,14 @@ const actions = {
     }).then((output) => output.json()).then((output) => {
       console.log('Skipped clip');
       client.say('tf2frags', 'Clip is being skipped...');
+      return fetch(`${process.env.API_URL}/clips/next`, {
+        method: 'POST',
+        headers: new fetch.Headers({
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': process.env.API_KEY,
+        }),
+      });
     }).catch((error) => {
       console.error(error);
       client.say('tf2frags', 'Could not skip clip! Contact developer!');
@@ -93,6 +101,18 @@ const actions = {
       });
     }).then((output) => output.json()).then((output) => {
       console.log('Clip Reported');
+      client.say('tf2frags', 'Clips is being reported...');
+      // currentClip is still cached on the API so we need to update it
+      return fetch(`${process.env.API_URL}/clips/next`, {
+        method: 'POST',
+        headers: new fetch.Headers({
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': process.env.API_KEY,
+        }),
+      });
+    }).then((output) => {
+      console.log('Next clip also called');
       client.say('tf2frags', 'Thanks, clip reported.');
     }).catch((error) => {
       console.error(error);
