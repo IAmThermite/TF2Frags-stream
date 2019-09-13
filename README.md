@@ -20,7 +20,7 @@ Broadcaster commands:
 
 Mod commands:
 - `!restartClip` -> restarts the browser source in OBS
-- `!randomise` -> randomise order of clips
+- `!randomise [restart?]` -> randomise order of clips, if restart is true it will reload the browser, effectively skipping
 
 ### Limitations
 
