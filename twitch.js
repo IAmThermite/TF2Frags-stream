@@ -62,7 +62,7 @@ const actions = {
       obs.restartBrowser();
     });
   },
-  'report': (params) => {
+  'report': (userstate, params) => {
     if (rateLimit) {
       client.say('tf2frags', 'Please wait at least 10 seconds before issuing that command');
       return;
@@ -111,7 +111,64 @@ const actions = {
   'upload': () => {
     client.say('tf2frags', 'Visit https://tf2frags.net to upload your own clips!');
   },
-  'endStream': (params, userstate) => {
+  'endStream': (userstate, params) => {
+    if(userstate.badges.broadcaster === '1') {
+      obs.stopStream();
+      client.say('tf2frags', 'Stream is ending. Thanks for watching!');
+
+      console.log('Randomising clips...');
+      fetch(`${process.env.API_URL}/clips/randomise`, {
+        headers: new fetch.Headers({
+          'Accept': 'application/json',
+          'Authorization': process.env.API_KEY,
+        }),
+      }).then((output) => {
+        return output.json();
+      }).then((output) => {
+        console.log('Clips randomised');
+        if (params[0] === 'true') {
+          obs.restartBrowser();
+        }
+      }).catch((error) => {
+        console.error(error);
+      });
+    } else {
+      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
+    }
+  },
+  // MOD COMMANDS
+  'restartClip': (userstate, params) => {
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster === '1')) {
+      obs.restartBrowser();
+      client.say('tf2frags', 'Restarting clip...');
+    } else {
+      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
+    }
+  },
+  'randomise': (userstate, params) => {
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster === '1')) {
+      client.say('tf2frags', 'Randomising clips...');
+      fetch(`${process.env.API_URL}/clips/randomise`, {
+        headers: new fetch.Headers({
+          'Accept': 'application/json',
+          'Authorization': process.env.API_KEY,
+        }),
+      }).then((output) => {
+        return output.json();
+      }).then((output) => {
+        client.say('tf2frags', 'Clips randomised');
+        if (params[0] === 'true') {
+          obs.restartBrowser();
+        }
+      }).catch((error) => {
+        client.say('tf2frags', 'Failed to randomise clips!');
+      });
+    } else {
+      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
+    }
+  },
+  // ADMIN COMMANDS
+  'stopStream': (userstate, params) => {
     if(userstate.badges.broadcaster === '1') {
       obs.stopStream();
       client.say('tf2frags', 'Stream is ending. Thanks for watching!');
@@ -119,15 +176,7 @@ const actions = {
       client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
     }
   },
-  'stopStream': (params, userstate) => {
-    if(userstate.badges.broadcaster === '1') {
-      obs.stopStream();
-      client.say('tf2frags', 'Stream is ending. Thanks for watching!');
-    } else {
-      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
-    }
-  },
-  'startStream': (params, userstate) => {
+  'startStream': (userstate, params) => {
     if(userstate.badges.broadcaster === '1') {
       obs.startStream();
       client.say('tf2frags', 'Stream is starting...');
@@ -135,12 +184,6 @@ const actions = {
       client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
     }
   },
-  'restartClip': (params, userstate) => {
-    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster === '1')) {
-      obs.restartBrowser();
-      client.say('tf2frags', 'Restarting clip...');
-    }
-  }
 }
 
 client.on('chat', (channel, userstate, message, self) => {
@@ -150,7 +193,7 @@ client.on('chat', (channel, userstate, message, self) => {
     const params = message.substring(message.indexOf(' ') + 1).trim().split(' ');
 
     if(actions[command]) {
-      actions[command](params, userstate);
+      actions[command](userstate, params);
     }
   }
 });
