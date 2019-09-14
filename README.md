@@ -9,22 +9,20 @@ The `index.html` file is served up by the `express` server and is used in a Brow
 ### The Twitch bot
 
 Commands are as follows: (text in square braces is optional)
-- `!skip` -> skips the current clip and plays the next one
+- `!skip` -> skips the current clip and plays the next one, requires 1 other approval
 - `!report [previous]` -> flags the current clip or the previous clip (`!report previous`) and skips if necessary
 - `!help`/`!commands` -> shows the available commands
 - `!upload` -> shows location to upload clips
+- `!clip [previous]` -> gets current clip information
+- `!vote [url]` -> vote for a clip to be played next, requires 2 other approvals
+
+Mod commands:
+- `!restartClip` -> restarts the browser source in OBS
+- `!randomise [restart?]` -> randomise order of clips, if restart is true it will reload the browser, effectively skipping the current clip
 
 Broadcaster commands:
 - `!endStream` -> ends the stream (node process is kept alive)
 - `!startStream` - > starts the stream
-
-Mod commands:
-- `!restartClip` -> restarts the browser source in OBS
-- `!randomise [restart?]` -> randomise order of clips, if restart is true it will reload the browser, effectively skipping
-
-### Limitations
-
-Due to the way Twitch handles clips, there is no way that they can be controlled like the YouTube videos can be controlled. They are dissimilar from regular twitch vods (for some reason!) so cannot be controlled as precicely as YouTube clips. There is a 30 sec max time on Twitch clips and then the next clip will be loaded regardless of whether it is actually finished or not (default clips duration is 28sec). YouTube videos must be [embedable](https://support.google.com/youtube/answer/171780?hl=en) (on by default) as well.
 
 ### Known Bugs
 
