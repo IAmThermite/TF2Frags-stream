@@ -40,7 +40,7 @@ const actions = {
       if (!wantToSkip) {
         client.say('tf2frags', '1 more vote needed to skip');
         wantToSkip = true;
-        skipee = usetstate['display-name'];
+        skipee = userstate['display-name'];
         setTimeout(() => {
           wantToSkip = false;
           skipee  = undefined;
@@ -150,14 +150,14 @@ const actions = {
         'Authorization': process.env.API_KEY,
       }),
     }).then((output) => output.json()).then((output) => {
-      client.send('tf2frags', `${params[0] === 'previous' ? 'Previous' : 'Current'} clip: ${output.url}`);
+      client.say('tf2frags', `${params[0] === 'previous' ? 'Previous' : 'Current'} clip: ${output.url}`);
     }).catch((error) => {
-      client.send('tf2frags', 'Sorry, couldn\'t get clip info');
+      client.say('tf2frags', 'Sorry, couldn\'t get clip info');
     });
   },
   'vote': (userstate, params) => {
     if (vote.votees.includes(userstate['display-name'])) {
-      client.say('tf2frags', `@${userstate['displayname']}, you have already voted`)
+      client.say('tf2frags', `@${userstate['display-name']}, you have already voted`)
       return;
     }
     if (params[0] && vote.url === '') { // vote url and no current vote
