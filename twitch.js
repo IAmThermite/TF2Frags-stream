@@ -36,7 +36,7 @@ const timeOut = () => {
 
 const actions = {
   'skip': (userstate) => {
-    if (!userstate.mod || !userstate.badges.broadcaster === '1') { // not mod and not streamer
+    if (!userstate.mod || (userstate.badges && !userstate.badges.broadcaster)) { // not mod and not streamer
       if (!wantToSkip) {
         client.say('tf2frags', '1 more vote needed to skip');
         wantToSkip = true;
@@ -44,7 +44,8 @@ const actions = {
         setTimeout(() => {
           wantToSkip = false;
           skipee  = undefined;
-        }, 3000);
+          client.say('tf2frags', 'Skip canceled');
+        }, 20000); // 20 sec
         return;
         // dont time out yet
       } else { // now we can skip
@@ -87,6 +88,10 @@ const actions = {
       console.error(error);
       client.say('tf2frags', 'Could not skip clip! Contact developer!');
     }).finally(() => {
+      wantToSkip = false;
+      skipee  = undefined;
+      clearTimeout();
+      timeOut(); // we still want to rate limit
       // restart browser
       obs.restartBrowser();
     });
@@ -192,6 +197,9 @@ const actions = {
           vote.votees = [];
           // process vote, find out if video exists otherwise add it, order should be 0
           // will changing api to something like db.find(req.params) work?
+
+          client.say('tf2frags', 'Vote passed!');
+          // restart browser
         } else {
           client.say('tf2frags', `Vote for ${vote.url} requires ${3 - vote.votes} more votes`);
         }
@@ -211,7 +219,7 @@ const actions = {
   },
   // MOD COMMANDS
   'restartClip': (userstate, params) => {
-    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster === '1')) {
+    if (userstate.mod || userstate.badges.broadcaster) {
       obs.restartBrowser();
       client.say('tf2frags', 'Restarting clip...');
     } else {
@@ -219,7 +227,7 @@ const actions = {
     }
   },
   'randomise': (userstate, params) => {
-    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster === '1')) {
+    if (userstate.mod || userstate.badges.broadcaster) {
       client.say('tf2frags', 'Randomising clips...');
       fetch(`${process.env.API_URL}/clips/randomise`, {
         headers: new fetch.Headers({

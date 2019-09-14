@@ -9,12 +9,12 @@ The `index.html` file is served up by the `express` server and is used in a Brow
 ### The Twitch bot
 
 Commands are as follows: (text in square braces is optional)
-- `!skip` -> skips the current clip and plays the next one, requires 1 other approval
+- `!skip` -> skips the current clip and plays the next one, requires 1 other approval (mod/broadcaster can override)
 - `!report [previous]` -> flags the current clip or the previous clip (`!report previous`) and skips if necessary
 - `!help`/`!commands` -> shows the available commands
 - `!upload` -> shows location to upload clips
 - `!clip [previous]` -> gets current clip information
-- `!vote [url]` -> vote for a clip to be played next, requires 2 other approvals
+- `!vote [url]` -> vote for a clip to be played next, requires 2 other approvals (mod/broadcaster can override)
 
 Mod commands:
 - `!restartClip` -> restarts the browser source in OBS
