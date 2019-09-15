@@ -18,135 +18,190 @@ const options = {
 
 const client = new TwitchJS.client(options);
 
-// Wait for 10 sec before being able to skip again
 const vote = {
   url: '',
   votes: 0,
   votees: [],
 }
-let wantToSkip = false;
-let skipee = undefined;
+
+let skipees = []; // people who want to skip (skipees? skippers?)
+let reportees = [];
+
 let rateLimit = false;
-const timeOut = () => {
+const timeOutCommand = () => {
   rateLimit = true;
   setTimeout(() => { // untimeout after 10 sec
     rateLimit = false;
   }, 10000);
+};
+
+const skipClip = () => {
+  client.say('tf2frags', 'Skipping clip');
+  // update clip
+  fetch(`${process.env.API_URL}/clips/current`, {
+    headers: new fetch.Headers({
+      'Accept': 'application/json',
+      'Authorization': process.env.API_KEY,
+    }),
+  }).then((output) => output.json()).then((output) => {
+    return fetch(`${process.env.API_URL}/clips/${output._id}`, {
+      method: 'POST',
+      headers: new fetch.Headers({
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': process.env.API_KEY,
+      }),
+    });
+  }).then((output) => output.json()).then((output) => {
+    console.log('Skipped clip');
+    client.say('tf2frags', 'Clip is being skipped...');
+    return fetch(`${process.env.API_URL}/clips/next`, {
+      method: 'POST',
+      headers: new fetch.Headers({
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': process.env.API_KEY,
+      }),
+    });
+  }).catch((error) => {
+    console.error(error);
+    client.say('tf2frags', 'Could not skip clip!');
+  }).finally(() => {
+    skipees = [];
+    // restart browser
+    obs.restartBrowser();
+  });
+};
+
+const reportClip = (previous) => {
+  client.say('tf2frags', 'Reporting clip');
+  // update current clip
+  fetch(`${process.env.API_URL}/clips/${previous ? 'previous' : 'current'}`, {
+    headers: new fetch.Headers({
+      'Accept': 'application/json',
+      'Authorization': process.env.API_KEY,
+    })
+  }).then((output) => output.json()).then((output) => {
+    return fetch(`${process.env.API_URL}/clips/${output._id}`, {
+      method: 'POST',
+      headers: new fetch.Headers({
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': process.env.API_KEY,
+      }),
+      body: JSON.stringify({reported: 1}),
+    });
+  }).then((output) => output.json()).then((output) => {
+    console.log('Clip Reported');
+    client.say('tf2frags', 'Clips is being reported...');
+    // currentClip is still cached on the API so we need to update it
+    return fetch(`${process.env.API_URL}/clips/next`, {
+      method: 'POST',
+      headers: new fetch.Headers({
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': process.env.API_KEY,
+      }),
+    });
+  }).then((output) => {
+    client.say('tf2frags', 'Thanks, clip reported.');
+  }).catch((error) => {
+    console.error(error);
+    client.say('tf2frags', 'Could not report clip!');
+  }).finally(() => {
+    // restart browser
+    if (!previous) { // if reporting current one we need to skip as well
+      obs.restartBrowser();
+    }
+  });
 }
 
 const actions = {
-  'skip': (userstate) => {
-    if (!userstate.mod || (userstate.badges && !userstate.badges.broadcaster)) { // not mod and not streamer
-      if (!wantToSkip) {
-        client.say('tf2frags', '1 more vote needed to skip');
-        wantToSkip = true;
-        skipee = userstate['display-name'];
-        setTimeout(() => {
-          wantToSkip = false;
-          skipee  = undefined;
-          client.say('tf2frags', 'Skip canceled');
-        }, 20000); // 20 sec
-        return;
-        // dont time out yet
-      } else { // now we can skip
-        if (skipee === userstate['display-name']) {
-          client.say('tf2frags', `@${skipee}, you have already called a skip`);
+  'skip': async (userstate) => {
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) { // mod or streamer
+      skipClip();
+    } else {
+      fetch(`https://api.twitch.tv/helix/streams/?user_id=448859133`, {
+        headers: new fetch.Headers({'Client-ID': process.env.TWITCH_CLIENT_ID}),
+      }).then((output) => {
+        return output.json();
+      }).then((output) => {
+        if (rateLimit) {
+          client.say('tf2frags', 'Please wait at least 10 seconds before issuing that command');
           return;
         }
-        wantToSkip = false;
-      }
+        if (skipees.includes(userstate['display-name'])) { // user already skipped
+          client.say('tf2frags', `@${userstate['display-name']}, you have already voted to skip`);
+          return;
+        } else {
+          skipees.push(userstate['display-name']);
+        }
+        const required = Math.ceil(output.data[0].viewer_count * 0.15); 15%
+        client.say('tf2frags', `${required - skipees.length}/${required} votes`);
+        setTimeout(() => {
+          if(skipees.length > 0) {
+            skipees = [];
+            client.say('tf2frags', 'Skip vote reset');
+          }
+        }, 20000); // reset after 20 sec
+
+        if (required - skipees.length === 0) {
+          clearTimeout();
+          skipClip();
+          timeOutCommand(); // still want to rate limit
+        }
+      }).catch((error) => {
+        console.error(error);
+        client.say('tf2frags', 'Could not skip clip!');
+      });
     }
-    
-    client.say('tf2frags', 'Skipping clip');
-    // update clip
-    fetch(`${process.env.API_URL}/clips/current`, {
-      headers: new fetch.Headers({
-        'Accept': 'application/json',
-        'Authorization': process.env.API_KEY,
-      }),
-    }).then((output) => output.json()).then((output) => {
-      return fetch(`${process.env.API_URL}/clips/${output._id}`, {
-        method: 'PUT',
-        headers: new fetch.Headers({
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': process.env.API_KEY,
-        }),
-      });
-    }).then((output) => output.json()).then((output) => {
-      console.log('Skipped clip');
-      client.say('tf2frags', 'Clip is being skipped...');
-      return fetch(`${process.env.API_URL}/clips/next`, {
-        method: 'POST',
-        headers: new fetch.Headers({
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': process.env.API_KEY,
-        }),
-      });
-    }).catch((error) => {
-      console.error(error);
-      client.say('tf2frags', 'Could not skip clip! Contact developer!');
-    }).finally(() => {
-      wantToSkip = false;
-      skipee  = undefined;
-      clearTimeout();
-      timeOut(); // we still want to rate limit
-      // restart browser
-      obs.restartBrowser();
-    });
   },
   'report': (userstate, params) => {
-    if (rateLimit) {
-      client.say('tf2frags', 'Please wait at least 10 seconds before issuing that command');
-      return;
-    }
-    timeOut(); // rate limit command
-
     let previous = 0;
     if(params) {
-      if(params[0] === 'previous' || params[0] === 'prev') {
+      if(params[0].startsWith('p')) {
         previous = 1;
       }
     }
-    // update current clip
-    fetch(`${process.env.API_URL}/clips/${previous ? 'previous' : 'current'}`, {
-      headers: new fetch.Headers({
-        'Accept': 'application/json',
-        'Authorization': process.env.API_KEY,
-      })
-    }).then((output) => output.json()).then((output) => {
-      return fetch(`${process.env.API_URL}/clips/${output._id}`, {
-        method: 'POST',
-        headers: new fetch.Headers({
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': process.env.API_KEY,
-        }),
-        body: JSON.stringify({reported: 1}),
+
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) { // mod or streamer
+      reportClip(previous);
+    } else {
+      fetch(`https://api.twitch.tv/helix/streams/?user_id=448859133`, {
+        headers: new fetch.Headers({'Client-ID': process.env.TWITCH_CLIENT_ID}),
+      }).then((output) => {
+        return output.json();
+      }).then((output) => {
+        if (rateLimit) {
+          client.say('tf2frags', 'Please wait at least 10 seconds before issuing that command');
+          return;
+        }
+        if (reportees.includes(userstate['display-name'])) { // user already skipped
+          client.say('tf2frags', `@${userstate['display-name']}, you have already voted to report`);
+          return;
+        } else {
+          reportees.push(userstate['display-name']);
+        }
+        const required = Math.ceil(output.data[0].viewer_count * 0.1); // 10%
+        client.say('tf2frags', `${required - reportees.length}/${required} votes`);
+        setTimeout(() => {
+          if(reportees.length > 0) {
+            reportees = [];
+            client.say('tf2frags', 'Report vote reset');
+          }
+        }, 10000); // reset after 10 sec
+
+        if (required - reportees.length === 0) {
+          clearTimeout();
+          reportClip();
+          timeOutCommand(); // still want to rate limit
+        }
+      }).catch((error) => {
+        console.error(error);
+        client.say('tf2frags', 'Could not report clip!');
       });
-    }).then((output) => output.json()).then((output) => {
-      console.log('Clip Reported');
-      client.say('tf2frags', 'Clips is being reported...');
-      // currentClip is still cached on the API so we need to update it
-      return fetch(`${process.env.API_URL}/clips/next`, {
-        method: 'POST',
-        headers: new fetch.Headers({
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': process.env.API_KEY,
-        }),
-      });
-    }).then((output) => {
-      console.log('Next clip also called');
-      client.say('tf2frags', 'Thanks, clip reported.');
-    }).catch((error) => {
-      console.error(error);
-      client.say('tf2frags', 'Could not report clip! Contact developer!');
-    }).finally(() => {
-      // restart browser
-      obs.restartBrowser();
-    });
+    }
+    
   },
   'clip': (userstate, params) => {
     fetch(`${process.env.API_URL}/clips/${params[0] === 'previous' ? 'previous' : 'current'}`, {
