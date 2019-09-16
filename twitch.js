@@ -281,10 +281,10 @@ const actions = {
     }
   },
   'queue': () => {
-    fetch(`https://tf2frags.net/api/clips/queue?limit=3`).then((output) => {
+    fetch(`https://tf2frags.net/api/clips/queue?limit=4`).then((output) => {
       return output.json();
     }).then((output) => {
-      client.say('tf2frags', `Next 3 clips:\n${output[0].name} ${output[0].url}\n${output[1].name} ${output[1].url}\n${output[2].name} ${output[2].url}`);
+      client.say('tf2frags', `Next 3 clips: ${output[1].name} ${output[1].url}  ${output[2].name} ${output[2].url}  ${output[3].name} ${output[3].url}`);
     }).catch((error) => {
       client.say('tf2frags', 'Error fetching queue!');
     });
