@@ -136,7 +136,7 @@ const actions = {
         } else {
           skipees.push(userstate['display-name']);
         }
-        const required = Math.ceil(output.data[0].viewer_count * 0.15); 15%
+        const required = Math.ceil(output.data[0].viewer_count * 0.20); // 20%
         client.say('tf2frags', `${required - skipees.length}/${required} votes`);
         setTimeout(() => {
           if(skipees.length > 0) {
