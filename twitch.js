@@ -212,7 +212,7 @@ const actions = {
     if(params[0]) {
       previous = params[0].startsWith('p');
     }
-    fetch(`${process.env.API_URL}/clips/${previos ? 'previous' : 'current'}`, {
+    fetch(`${process.env.API_URL}/clips/${previous ? 'previous' : 'current'}`, {
       headers: new fetch.Headers({
         'Accept': 'application/json',
         'Authorization': process.env.API_KEY,
@@ -239,7 +239,7 @@ const actions = {
               vote.votees = [];
               client.say('tf2frags', 'Vote timed out and has been cleared');
             }
-          }, 30000); // clear vote after 5 min
+          }, 120000); // clear vote after 2 min
           
           vote.url = url.href;
           vote.votes = vote.votes + 1;
@@ -252,24 +252,42 @@ const actions = {
         client.say('tf2frags', 'Not a valid clip url!');
       }
     } else {
-      if (vote.url) {
-        vote.votes = vote.votes + 1;
-        if (vote.votes === 3) {
-          vote.votes = 0;
-          vote.url = '';
-          vote.votees = [];
-          // process vote, find out if video exists otherwise add it, order should be 0
-          // will changing api to something like db.find(req.params) work?
-
-          client.say('tf2frags', 'Vote passed!');
-          // restart browser
-        } else {
-          client.say('tf2frags', `Vote for ${vote.url} requires ${3 - vote.votes} more votes`);
-        }
+      if (vote.url) { // vote in progress
+        fetch(`https://api.twitch.tv/helix/streams/?user_id=448859133`, {
+          headers: new fetch.Headers({'Client-ID': process.env.TWITCH_CLIENT_ID}),
+        }).then((output) => {
+          return output.json();
+        }).then((output) => {
+          const required = Math.ceil(output.viewer_count * 0.2);
+          vote.votes = vote.votes + 1;
+          if (vote.votes === required) { // 20%
+            vote.votes = 0;
+            vote.url = '';
+            vote.votees = [];
+            // process vote, find out if video exists otherwise add it, order should be 0
+            // will changing api to something like db.find(req.params) work?
+            client.say('tf2frags', 'Vote is nearly implemented, sorry!');
+            // client.say('tf2frags', 'Vote passed!');
+            // restart browser
+          } else {
+            client.say('tf2frags', `Vote for ${vote.url}, ${vote.votes}/${required} votes`);
+          }
+        }).catch((error) => {
+          client.say('tf2frags', 'Error submiting vote!');
+        })
       } else { // no current vote
-        client.say('tf2frags', `There is no vote in progress`);
+        client.say('tf2frags', 'There is no vote in progress');
       }
     }
+  },
+  'queue': () => {
+    fetch(`https://tf2frags.net/api/clips/queue?limit=3`).then((output) => {
+      return output.json();
+    }).then((output) => {
+      client.say('tf2frags', `Next 3 clips:\n${output[0].name} ${output[0].url}\n${output[1].name} ${output[1].url}\n${output[2].name} ${output[2].url}`);
+    }).catch((error) => {
+      client.say('tf2frags', 'Error fetching queue!');
+    });
   },
   'help': () => {
     client.say('tf2frags', 'Commands: !skip -> skip current clip, !report [previous] -> report current clip or previous clip, !help/!commands -> this message, !upload -> show url to upload clips, !clip [previous]-> get information about clip, !vote [url] -> vote for a clip to be played');
@@ -311,7 +329,25 @@ const actions = {
       client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
     }
   },
-  // ADMIN COMMANDS
+  'cancel': (userstate, params) => {
+    if (userstate.mod || userstate.badges.broadcaster) {
+      vote.url = '';
+      vote.votees = [];
+      vote.votes = 0;
+      clearTimeout();
+
+      reportees = [];
+      clearTimeout(reportTimeout);
+
+      skipees = [];
+      clearTimeout(skipTimeout);
+
+      client.say('tf2frags', 'Vote/skip/report canceled');
+    } else {
+      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
+    }
+  },
+  // BROADCASTER COMMANDS
   'stopStream': (userstate, params) => {
     if(userstate.badges.broadcaster === '1') {
       obs.stopStream();
