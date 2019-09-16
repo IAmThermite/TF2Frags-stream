@@ -204,13 +204,17 @@ const actions = {
     
   },
   'clip': (userstate, params) => {
-    fetch(`${process.env.API_URL}/clips/${params[0] === 'previous' ? 'previous' : 'current'}`, {
+    let previous = false;
+    if(params[0]) {
+      previous = params[0].startsWith('p');
+    }
+    fetch(`${process.env.API_URL}/clips/${previos ? 'previous' : 'current'}`, {
       headers: new fetch.Headers({
         'Accept': 'application/json',
         'Authorization': process.env.API_KEY,
       }),
     }).then((output) => output.json()).then((output) => {
-      client.say('tf2frags', `${params[0] === 'previous' ? 'Previous' : 'Current'} clip: ${output.url}`);
+      client.say('tf2frags', `${previous ? 'Previous' : 'Current'} clip: ${output.url}`);
     }).catch((error) => {
       client.say('tf2frags', 'Sorry, couldn\'t get clip info');
     });
