@@ -312,20 +312,6 @@ const actions = {
     if(userstate.badges.broadcaster === '1') {
       obs.stopStream();
       client.say('tf2frags', 'Stream is ending. Thanks for watching!');
-
-      console.log('Randomising clips...');
-      fetch(`${process.env.API_URL}/clips/randomise`, {
-        headers: new fetch.Headers({
-          'Accept': 'application/json',
-          'Authorization': process.env.API_KEY,
-        }),
-      }).then((output) => {
-        return output.json();
-      }).then((output) => {
-        console.log('Clips randomised');
-      }).catch((error) => {
-        console.error(error);
-      });
     } else {
       client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
     }
