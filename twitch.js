@@ -24,7 +24,9 @@ const vote = {
   votees: [],
 }
 
+let skipTimeout;
 let skipees = []; // people who want to skip (skipees? skippers?)
+let reportTimeout;
 let reportees = [];
 
 let rateLimit = false;
@@ -137,8 +139,9 @@ const actions = {
           skipees.push(userstate['display-name']);
         }
         const required = Math.ceil(output.data[0].viewer_count * 0.20); // 20%
-        client.say('tf2frags', `${required - skipees.length}/${required} votes`);
-        setTimeout(() => {
+        client.say('tf2frags', `${skipees.length}/${required} votes required to skip`);
+        clearTimeout(skipTimeout) // end previous timeout
+        skipTimeout = setTimeout(() => {
           if(skipees.length > 0) {
             skipees = [];
             client.say('tf2frags', 'Skip vote reset');
@@ -146,7 +149,7 @@ const actions = {
         }, 20000); // reset after 20 sec
 
         if (required - skipees.length === 0) {
-          clearTimeout();
+          clearTimeout(skipTimeout);
           skipClip();
           timeOutCommand(); // still want to rate limit
         }
@@ -183,8 +186,9 @@ const actions = {
           reportees.push(userstate['display-name']);
         }
         const required = Math.ceil(output.data[0].viewer_count * 0.1); // 10%
-        client.say('tf2frags', `${required - reportees.length}/${required} votes`);
-        setTimeout(() => {
+        client.say('tf2frags', `${reportees.length}/${required} votes required to report`);
+        clearTimeout(reportTimeout);
+        reportTimeout = setTimeout(() => {
           if(reportees.length > 0) {
             reportees = [];
             client.say('tf2frags', 'Report vote reset');
@@ -192,7 +196,7 @@ const actions = {
         }, 10000); // reset after 10 sec
 
         if (required - reportees.length === 0) {
-          clearTimeout();
+          clearTimeout(reportTimeout);
           reportClip();
           timeOutCommand(); // still want to rate limit
         }
