@@ -163,7 +163,6 @@
               'Content-Type': 'application/json',
               'Authorization': apiKey
             },
-            method: 'POST',
           }
         );
       }
@@ -177,7 +176,7 @@
               'Content-Type': 'application/json',
               'Authorization': apiKey
             },
-            method: 'POST',
+            method: 'PUT',
             body: JSON.stringify(body),
           }
         );
@@ -200,18 +199,23 @@
                 console.log('Clip does not exist, skipping');
                 updateClip({_id: currentClip._id, error: 1}).finally(() => {
                   nextVideo();
-                })
+                });
               } else {
                 startYoutube();
                 updateClipInfo(output.title, output.channelTitle);
               }
-            }).catch((error) => {
+            }).catch(async (error) => {
               console.error(error)
               // check here for gapi undefined in which case dont error
-              updateClip({_id: currentClip._id, error: 1}).finally(() => {
+              if(error.name !== 'TypeError') { // genereally shouldn't get here anyway
+                updateClip({_id: currentClip._id, error: 1}).finally(() => {
+                  nextVideo();
+                });
+              } else {
+                await new Promise((resolve) => setTimeout(() => resolve(), 500)); // sleep for a bit
+                updateClipInfo('Unable to get clip info', 'ERROR');
                 nextVideo();
-              })
-              updateClipInfo('Unable to get clip info', 'ERROR');
+              }
             });
           } else if (output.url.includes('twitch.tv')) {
             getTwitchVideoData(output.code).then((output) => {

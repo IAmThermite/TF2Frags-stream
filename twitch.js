@@ -47,7 +47,7 @@ const skipClip = () => {
     }),
   }).then((output) => output.json()).then((output) => {
     return fetch(`${process.env.API_URL}/clips/${output._id}`, {
-      method: 'POST',
+      method: 'PUT',
       headers: new fetch.Headers({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -58,7 +58,6 @@ const skipClip = () => {
     console.log('Skipped clip');
     client.say('tf2frags', 'Clip is being skipped...');
     return fetch(`${process.env.API_URL}/clips/next`, {
-      method: 'POST',
       headers: new fetch.Headers({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -85,7 +84,7 @@ const reportClip = (previous) => {
     })
   }).then((output) => output.json()).then((output) => {
     return fetch(`${process.env.API_URL}/clips/${output._id}`, {
-      method: 'POST',
+      method: 'PUT',
       headers: new fetch.Headers({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -98,7 +97,6 @@ const reportClip = (previous) => {
     client.say('tf2frags', 'Clips is being reported...');
     // currentClip is still cached on the API so we need to update it
     return fetch(`${process.env.API_URL}/clips/next`, {
-      method: 'POST',
       headers: new fetch.Headers({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
