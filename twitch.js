@@ -22,7 +22,6 @@ let voteTimeout;
 const vote = {
   url: '',
   code: '',
-  votes: 0,
   votees: [],
 }
 
@@ -154,6 +153,7 @@ const actions = {
         }
       }).catch((error) => {
         console.error(error);
+        skipees = [];
         client.say('tf2frags', 'Could not skip clip!');
       });
     }
@@ -202,7 +202,6 @@ const actions = {
           // dont want to reset timeout
           voteTimeout = setTimeout(() => {
             if(vote.url) { // if vote still in progress
-              vote.votes = 0;
               vote.url = '';
               vote.code = '',
               vote.votees = [];
@@ -211,7 +210,6 @@ const actions = {
           }, 120000); // clear vote after 2 min
           
           vote.url = url.href;
-          vote.votes = vote.votes + 1;
           vote.votees.push(userstate['display-name']); // add the username to the 
           client.say('tf2frags', `Vote called for clip ${url.href}. Type !vote to vote yes`);
         } else {
@@ -228,33 +226,38 @@ const actions = {
           return output.json();
         }).then((output) => {
           const required = Math.ceil(output.viewer_count * 0.25); // 25%
-          vote.votes = vote.votes + 1;
-          if (vote.votes === required) {
-            vote.votes = 0;
+          if (vote.votees.length === required) { // vote passed
             vote.url = '';
             vote.code = '';
             vote.votees = [];
 
-            fetch(`${process.env.API_URL}/clips/${vote.code}`, {
+            fetch(`${process.env.API_URL}/clips/${vote.code}`, { // check to see if it exists
               headers: new fetch.Headers({
                 'Accept': 'application/json',
                 'Authorization': process.env.API_KEY,
               }),
             }).then((output) => {
+              return output.json();
+            }).then((output) => {
               if(output) {
-                fetch(`${process.env.API_URL}/clips/${vote.code}`, {
+                if(output.reported) {
+                  client.say('tf2frags', 'Invalid clip, vote not passed.');
+                  return;
+                }
+                fetch(`${process.env.API_URL}/clips/${output._id}`, { // update
                   headers: new fetch.Headers({
                     'Accept': 'application/json',
                     'Authorization': process.env.API_KEY,
                   }),
-                  method: 'PUT'
+                  method: 'PUT',
+                  body: JSON.stringify({order: -1}),
                 }).then((output) => {
                   client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
                 }).catch((error) => {
-                  client.say('tf2frags', `Sorry, something went wrong.`);
+                  client.say('tf2frags', 'Sorry, something went wrong.');
                 });
               } else {
-                fetch(`${process.env.API_URL}/clips/`, {
+                fetch(`${process.env.API_URL}/clips/`, { // add
                   headers: new fetch.Headers({
                     'Accept': 'application/json',
                     'Authorization': process.env.API_KEY,
@@ -264,14 +267,21 @@ const actions = {
                     url: vote.url,
                     code: vote.code,
                     uploadedBy: 'BOT',
-                    order: -1,
+                    order: -1, // set to top
                   }),
                   method: 'POST'
+                }).then((output) => {
+                  client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
+                }).catch((error) => {
+                  client.say('tf2frags', 'Sorry, something went wrong.');
+                  vote.url = '';
+                  vote.code = '';
+                  vote.votees = [];
                 });
               }
             });
           } else {
-            client.say('tf2frags', `Vote for ${vote.url}, ${vote.votes}/${required} votes`);
+            client.say('tf2frags', `Vote for ${vote.url}, ${vote.votees.length}/${required} votes`);
           }
         }).catch((error) => {
           client.say('tf2frags', 'Error submiting vote!');
@@ -349,7 +359,6 @@ const actions = {
       vote.url = '';
       vote.code = '',
       vote.votees = [];
-      vote.votes = 0;
       clearTimeout(voteTimeout);
 
       skipees = [];
