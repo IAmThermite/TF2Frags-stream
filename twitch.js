@@ -73,6 +73,58 @@ const skipClip = () => {
   });
 };
 
+const passVote = () => {
+  fetch(`${process.env.API_URL}/clips/${vote.code}`, { // check to see if it exists
+    headers: new fetch.Headers({
+      'Accept': 'application/json',
+      'Authorization': process.env.API_KEY,
+    }),
+  }).then((output) => {
+    return output.json();
+  }).then((output) => {
+    if(output) {
+      if(output.reported) {
+        client.say('tf2frags', 'Invalid clip, vote not passed.');
+        return;
+      }
+      fetch(`${process.env.API_URL}/clips/${output._id}`, { // update
+        headers: new fetch.Headers({
+          'Accept': 'application/json',
+          'Authorization': process.env.API_KEY,
+        }),
+        method: 'PUT',
+        body: JSON.stringify({order: -1}),
+      }).then((output) => {
+        client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
+      }).catch((error) => {
+        client.say('tf2frags', 'Sorry, something went wrong.');
+      });
+    } else {
+      fetch(`${process.env.API_URL}/clips/`, { // add
+        headers: new fetch.Headers({
+          'Accept': 'application/json',
+          'Authorization': process.env.API_KEY,
+        }),
+        body: JSON.stringify({
+          name: 'BOT UPLOADED',
+          url: vote.url,
+          code: vote.code,
+          uploadedBy: 'BOT',
+          order: -1, // set to top
+        }),
+        method: 'POST'
+      }).then((output) => {
+        client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
+      }).catch((error) => {
+        client.say('tf2frags', 'Sorry, something went wrong.');
+        vote.url = '';
+        vote.code = '';
+        vote.votees = [];
+      });
+    }
+  });
+}
+
 const reportClip = (previous) => {
   client.say('tf2frags', 'Reporting clip');
   // update current clip
@@ -212,6 +264,28 @@ const actions = {
           vote.url = url.href;
           vote.votees.push(userstate['display-name']); // add the username to the 
           client.say('tf2frags', `Vote called for clip ${url.href}. Type !vote to vote yes`);
+
+          if (userstate.mod || userstate.badges.broadcaster) { // is admin
+            passVote();
+            vote.url = '';
+            vote.code = '';
+            vote.votees = [];
+            clearTimeout(voteTimeout);
+            return;
+          }
+          
+          fetch(`https://api.twitch.tv/helix/streams/?user_id=448859133`, {
+            headers: new fetch.Headers({'Client-ID': process.env.TWITCH_CLIENT_ID}),
+          }).then((output) => {
+            return output.json();
+          }).then((output) => {
+            const required = Math.ceil(output.viewer_count * 0.25); // 25%
+            if (vote.votees.length === required) { // vote passed
+              passVote();
+              clearTimeout(voteTimeout);
+            }
+          });
+
         } else {
           client.say('tf2frags', 'Not a valid clip url!');
         }
@@ -220,6 +294,15 @@ const actions = {
       }
     } else {
       if (vote.url) { // vote in progress
+        if (userstate.mod || userstate.badges.broadcaster) { // is admin
+          passVote();
+          vote.url = '';
+          vote.code = '';
+          vote.votees = [];
+          clearTimeout(voteTimeout);
+          return;
+        }
+
         fetch(`https://api.twitch.tv/helix/streams/?user_id=448859133`, {
           headers: new fetch.Headers({'Client-ID': process.env.TWITCH_CLIENT_ID}),
         }).then((output) => {
@@ -227,59 +310,11 @@ const actions = {
         }).then((output) => {
           const required = Math.ceil(output.viewer_count * 0.25); // 25%
           if (vote.votees.length === required) { // vote passed
+            passVote();
             vote.url = '';
             vote.code = '';
             vote.votees = [];
-
-            fetch(`${process.env.API_URL}/clips/${vote.code}`, { // check to see if it exists
-              headers: new fetch.Headers({
-                'Accept': 'application/json',
-                'Authorization': process.env.API_KEY,
-              }),
-            }).then((output) => {
-              return output.json();
-            }).then((output) => {
-              if(output) {
-                if(output.reported) {
-                  client.say('tf2frags', 'Invalid clip, vote not passed.');
-                  return;
-                }
-                fetch(`${process.env.API_URL}/clips/${output._id}`, { // update
-                  headers: new fetch.Headers({
-                    'Accept': 'application/json',
-                    'Authorization': process.env.API_KEY,
-                  }),
-                  method: 'PUT',
-                  body: JSON.stringify({order: -1}),
-                }).then((output) => {
-                  client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
-                }).catch((error) => {
-                  client.say('tf2frags', 'Sorry, something went wrong.');
-                });
-              } else {
-                fetch(`${process.env.API_URL}/clips/`, { // add
-                  headers: new fetch.Headers({
-                    'Accept': 'application/json',
-                    'Authorization': process.env.API_KEY,
-                  }),
-                  body: JSON.stringify({
-                    name: 'BOT UPLOADED',
-                    url: vote.url,
-                    code: vote.code,
-                    uploadedBy: 'BOT',
-                    order: -1, // set to top
-                  }),
-                  method: 'POST'
-                }).then((output) => {
-                  client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
-                }).catch((error) => {
-                  client.say('tf2frags', 'Sorry, something went wrong.');
-                  vote.url = '';
-                  vote.code = '';
-                  vote.votees = [];
-                });
-              }
-            });
+            clearTimeout(voteTimeout);
           } else {
             client.say('tf2frags', `Vote for ${vote.url}, ${vote.votees.length}/${required} votes`);
           }
