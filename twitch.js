@@ -18,16 +18,16 @@ const options = {
 
 const client = new TwitchJS.client(options);
 
+let voteTimeout;
 const vote = {
   url: '',
+  code: '',
   votes: 0,
   votees: [],
 }
 
 let skipTimeout;
 let skipees = []; // people who want to skip (skipees? skippers?)
-let reportTimeout;
-let reportees = [];
 
 let rateLimit = false;
 const timeOutCommand = () => {
@@ -46,7 +46,7 @@ const skipClip = () => {
       'Authorization': process.env.API_KEY,
     }),
   }).then((output) => output.json()).then((output) => {
-    return fetch(`${process.env.API_URL}/clips/${output._id}`, {
+    return fetch(`${process.env.API_URL}/clips/${output._id}`, { // skip the clip
       method: 'PUT',
       headers: new fetch.Headers({
         'Accept': 'application/json',
@@ -83,7 +83,7 @@ const reportClip = (previous) => {
       'Authorization': process.env.API_KEY,
     })
   }).then((output) => output.json()).then((output) => {
-    return fetch(`${process.env.API_URL}/clips/${output._id}`, {
+    return fetch(`${process.env.API_URL}/clips/${output._id}`, { // skip the clip
       method: 'PUT',
       headers: new fetch.Headers({
         'Accept': 'application/json',
@@ -136,7 +136,8 @@ const actions = {
         } else {
           skipees.push(userstate['display-name']);
         }
-        const required = Math.ceil(output.data[0].viewer_count * 0.20); // 20%
+        const required = Math.ceil(output.data[0].viewer_count * 0.22); // 22%
+
         client.say('tf2frags', `${skipees.length}/${required} votes required to skip`);
         clearTimeout(skipTimeout) // end previous timeout
         skipTimeout = setTimeout(() => {
@@ -157,54 +158,6 @@ const actions = {
       });
     }
   },
-  'report': (userstate, params) => {
-    let previous = 0;
-    if(params) {
-      if(params[0].startsWith('p')) {
-        previous = 1;
-      }
-    }
-
-    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) { // mod or streamer
-      reportClip(previous);
-    } else {
-      fetch(`https://api.twitch.tv/helix/streams/?user_id=448859133`, {
-        headers: new fetch.Headers({'Client-ID': process.env.TWITCH_CLIENT_ID}),
-      }).then((output) => {
-        return output.json();
-      }).then((output) => {
-        if (rateLimit) {
-          client.say('tf2frags', 'Please wait at least 10 seconds before issuing that command');
-          return;
-        }
-        if (reportees.includes(userstate['display-name'])) { // user already skipped
-          client.say('tf2frags', `@${userstate['display-name']}, you have already voted to report`);
-          return;
-        } else {
-          reportees.push(userstate['display-name']);
-        }
-        const required = Math.ceil(output.data[0].viewer_count * 0.1); // 10%
-        client.say('tf2frags', `${reportees.length}/${required} votes required to report`);
-        clearTimeout(reportTimeout);
-        reportTimeout = setTimeout(() => {
-          if(reportees.length > 0) {
-            reportees = [];
-            client.say('tf2frags', 'Report vote reset');
-          }
-        }, 10000); // reset after 10 sec
-
-        if (required - reportees.length === 0) {
-          clearTimeout(reportTimeout);
-          reportClip();
-          timeOutCommand(); // still want to rate limit
-        }
-      }).catch((error) => {
-        console.error(error);
-        client.say('tf2frags', 'Could not report clip!');
-      });
-    }
-    
-  },
   'clip': (userstate, params) => {
     let previous = false;
     if(params[0]) {
@@ -223,17 +176,35 @@ const actions = {
   },
   'vote': (userstate, params) => {
     if (vote.votees.includes(userstate['display-name'])) {
-      client.say('tf2frags', `@${userstate['display-name']}, you have already voted`)
+      client.say('tf2frags', `@${userstate['display-name']}, you have already voted`);
       return;
     }
     if (params[0] && vote.url === '') { // vote url and no current vote
       try {
         const url = new URL(params[0]);
         if (url.hostname === 'youtube.com' || url.hostname === 'youtu.be' || url.hostname === 'clips.twitch.tv') {
-          setTimeout(() => {
+          let code;
+          if (url.host === 'clips.twitch.tv') {
+            code = url.pathname.substr(1, url.pathname.length).split('/')[0];
+          } else { // must be youtube
+            if (url.host === 'youtu.be') {
+              code = url.pathname.substr(1, url.pathname.length).split('/')[0];
+            } else {
+              code = url.searchParams.get('v'); // extract the video id from the provided url (could be lots of different things)
+            }
+          }
+
+          if (!code) { // no code found
+            client.say('tf2frags', 'Not a valid clip url!');
+            return;
+          }
+
+          // dont want to reset timeout
+          voteTimeout = setTimeout(() => {
             if(vote.url) { // if vote still in progress
               vote.votes = 0;
               vote.url = '';
+              vote.code = '',
               vote.votees = [];
               client.say('tf2frags', 'Vote timed out and has been cleared');
             }
@@ -256,17 +227,49 @@ const actions = {
         }).then((output) => {
           return output.json();
         }).then((output) => {
-          const required = Math.ceil(output.viewer_count * 0.2);
+          const required = Math.ceil(output.viewer_count * 0.25); // 25%
           vote.votes = vote.votes + 1;
-          if (vote.votes === required) { // 20%
+          if (vote.votes === required) {
             vote.votes = 0;
             vote.url = '';
+            vote.code = '';
             vote.votees = [];
-            // process vote, find out if video exists otherwise add it, order should be 0
-            // will changing api to something like db.find(req.params) work?
-            client.say('tf2frags', 'Vote is nearly implemented, sorry!');
-            // client.say('tf2frags', 'Vote passed!');
-            // restart browser
+
+            fetch(`${process.env.API_URL}/clips/${vote.code}`, {
+              headers: new fetch.Headers({
+                'Accept': 'application/json',
+                'Authorization': process.env.API_KEY,
+              }),
+            }).then((output) => {
+              if(output) {
+                fetch(`${process.env.API_URL}/clips/${vote.code}`, {
+                  headers: new fetch.Headers({
+                    'Accept': 'application/json',
+                    'Authorization': process.env.API_KEY,
+                  }),
+                  method: 'PUT'
+                }).then((output) => {
+                  client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
+                }).catch((error) => {
+                  client.say('tf2frags', `Sorry, something went wrong.`);
+                });
+              } else {
+                fetch(`${process.env.API_URL}/clips/`, {
+                  headers: new fetch.Headers({
+                    'Accept': 'application/json',
+                    'Authorization': process.env.API_KEY,
+                  }),
+                  body: JSON.stringify({
+                    name: 'BOT UPLOADED',
+                    url: vote.url,
+                    code: vote.code,
+                    uploadedBy: 'BOT',
+                    order: -1,
+                  }),
+                  method: 'POST'
+                });
+              }
+            });
           } else {
             client.say('tf2frags', `Vote for ${vote.url}, ${vote.votes}/${required} votes`);
           }
@@ -288,10 +291,10 @@ const actions = {
     });
   },
   'help': () => {
-    client.say('tf2frags', 'Commands: !skip -> skip current clip, !report [previous] -> report current clip or previous clip, !help/!commands -> this message, !upload -> show url to upload clips, !clip [previous]-> get information about clip, !vote [url] -> vote for a clip to be played');
+    client.say('tf2frags', 'Commands: !skip -> skip current clip, !help/!commands -> this message, !upload -> show url to upload clips, !clip [previous]-> get information about clip, !vote [url] -> vote for a clip to be played');
   },
   'commands': () => {
-    client.say('tf2frags', 'Commands: !skip -> skip current clip, !report [previous] -> report current clip or previous clip, !help/!commands -> this message, !upload -> show url to upload clips, !clip [previous]-> get information about clip, !vote [url] -> vote for a clip to be played');
+    client.say('tf2frags', 'Commands: !skip -> skip current clip, !help/!commands -> this message, !upload -> show url to upload clips, !clip [previous]-> get information about clip, !vote [url] -> vote for a clip to be played');
   },
   'upload': () => {
     client.say('tf2frags', 'Visit https://tf2frags.net to upload your own clips!');
@@ -327,20 +330,32 @@ const actions = {
       client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
     }
   },
+  'report': (userstate, params) => {
+    let previous = 0;
+    if(params) {
+      if(params[0].startsWith('p')) {
+        previous = 1;
+      }
+    }
+
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) { // mod or streamer
+      reportClip(previous);
+    } else {
+      client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
+    }
+  },
   'cancel': (userstate, params) => {
     if (userstate.mod || userstate.badges.broadcaster) {
       vote.url = '';
+      vote.code = '',
       vote.votees = [];
       vote.votes = 0;
-      clearTimeout();
-
-      reportees = [];
-      clearTimeout(reportTimeout);
+      clearTimeout(voteTimeout);
 
       skipees = [];
       clearTimeout(skipTimeout);
 
-      client.say('tf2frags', 'Vote/skip/report canceled');
+      client.say('tf2frags', 'Vote/skip canceled');
     } else {
       client.say('tf2frags', `@${userstate['display-name']} Not allowed to issue that command!`);
     }
