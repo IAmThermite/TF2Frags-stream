@@ -59,7 +59,6 @@ const skipClip = () => {
     return fetch(`${process.env.API_URL}/clips/next`, {
       headers: new fetch.Headers({
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
         'Authorization': process.env.API_KEY,
       }),
     });
@@ -82,21 +81,21 @@ const passVote = () => {
   }).then((output) => {
     return output.json();
   }).then((output) => {
-    if(output) {
-      if(output.reported) {
-        client.say('tf2frags', 'Invalid clip, vote not passed.');
-        vote.url = '';
-        vote.code = '';
-        vote.votees = [];
-        return;
-      }
-      fetch(`${process.env.API_URL}/clips/${output._id}`, { // update
+    if(output.error.code === 404) { // doesn't exist
+      fetch(`${process.env.API_URL}/clips/`, { // add
         headers: new fetch.Headers({
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
           'Authorization': process.env.API_KEY,
         }),
-        method: 'PUT',
-        body: JSON.stringify({order: -1}),
+        body: JSON.stringify({
+          name: 'BOT UPLOADED',
+          uploadedBy: 'BOT',
+          url: vote.url,
+          code: vote.code,
+          order: -1, // set to top
+        }),
+        method: 'POST'
       }).then((output) => {
         client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
       }).catch((error) => {
@@ -107,19 +106,21 @@ const passVote = () => {
         vote.votees = [];
       });
     } else {
-      fetch(`${process.env.API_URL}/clips/`, { // add
+      if(output.reported) {
+        client.say('tf2frags', 'Invalid clip, vote not passed.');
+        vote.url = '';
+        vote.code = '';
+        vote.votees = [];
+        return;
+      }
+      fetch(`${process.env.API_URL}/clips/${output._id}`, { // update
         headers: new fetch.Headers({
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
           'Authorization': process.env.API_KEY,
         }),
-        body: JSON.stringify({
-          name: 'BOT UPLOADED',
-          url: vote.url,
-          code: vote.code,
-          uploadedBy: 'BOT',
-          order: -1, // set to top
-        }),
-        method: 'POST'
+        method: 'PUT',
+        body: JSON.stringify({order: -1}),
       }).then((output) => {
         client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
       }).catch((error) => {
@@ -142,6 +143,7 @@ const reportClip = (previous) => {
       'Authorization': process.env.API_KEY,
     })
   }).then((output) => output.json()).then((output) => {
+    console.log(`Reporting clip ${output.url}`);
     return fetch(`${process.env.API_URL}/clips/${output._id}`, { // skip the clip
       method: 'PUT',
       headers: new fetch.Headers({
@@ -152,13 +154,11 @@ const reportClip = (previous) => {
       body: JSON.stringify({reported: 1}),
     });
   }).then((output) => output.json()).then((output) => {
-    console.log('Clip Reported');
     client.say('tf2frags', 'Clips is being reported...');
     // currentClip is still cached on the API so we need to update it
     return fetch(`${process.env.API_URL}/clips/next`, {
       headers: new fetch.Headers({
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
         'Authorization': process.env.API_KEY,
       }),
     });
@@ -242,7 +242,7 @@ const actions = {
     if (params[0] && vote.url === '') { // vote url and no current vote
       try {
         const url = new URL(params[0]);
-        if (url.hostname === 'youtube.com' || url.hostname === 'youtu.be' || url.hostname === 'clips.twitch.tv') {
+        if (url.host === 'youtube.com' || url.host === 'www.youtube.com' || url.host === 'youtu.be' || url.host === 'clips.twitch.tv') {
           let code;
           if (url.host === 'clips.twitch.tv') {
             code = url.pathname.substr(1, url.pathname.length).split('/')[0];
@@ -270,6 +270,7 @@ const actions = {
           }, 120000); // clear vote after 2 min
           
           vote.url = url.href;
+          vote.code = code;
           vote.votees.push(userstate['display-name']); // add the username to the 
           client.say('tf2frags', `Vote called for clip ${url.href}. Type !vote to vote yes`);
 
