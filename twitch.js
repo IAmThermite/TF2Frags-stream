@@ -85,6 +85,9 @@ const passVote = () => {
     if(output) {
       if(output.reported) {
         client.say('tf2frags', 'Invalid clip, vote not passed.');
+        vote.url = '';
+        vote.code = '';
+        vote.votees = [];
         return;
       }
       fetch(`${process.env.API_URL}/clips/${output._id}`, { // update
@@ -98,6 +101,10 @@ const passVote = () => {
         client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
       }).catch((error) => {
         client.say('tf2frags', 'Sorry, something went wrong.');
+      }).finally(() => {
+        vote.url = '';
+        vote.code = '';
+        vote.votees = [];
       });
     } else {
       fetch(`${process.env.API_URL}/clips/`, { // add
@@ -117,6 +124,7 @@ const passVote = () => {
         client.say('tf2frags', `Vote for ${vote.url} passed! Next clip will be the voted clip.`);
       }).catch((error) => {
         client.say('tf2frags', 'Sorry, something went wrong.');
+      }).finally(() => {
         vote.url = '';
         vote.code = '';
         vote.votees = [];
@@ -267,9 +275,6 @@ const actions = {
 
           if (userstate.mod || userstate.badges.broadcaster) { // is admin
             passVote();
-            vote.url = '';
-            vote.code = '';
-            vote.votees = [];
             clearTimeout(voteTimeout);
             return;
           }
@@ -296,9 +301,6 @@ const actions = {
       if (vote.url) { // vote in progress
         if (userstate.mod || userstate.badges.broadcaster) { // is admin
           passVote();
-          vote.url = '';
-          vote.code = '';
-          vote.votees = [];
           clearTimeout(voteTimeout);
           return;
         }
@@ -311,9 +313,6 @@ const actions = {
           const required = Math.ceil(output.viewer_count * 0.25); // 25%
           if (vote.votees.length === required) { // vote passed
             passVote();
-            vote.url = '';
-            vote.code = '';
-            vote.votees = [];
             clearTimeout(voteTimeout);
           } else {
             client.say('tf2frags', `Vote for ${vote.url}, ${vote.votees.length}/${required} votes`);
