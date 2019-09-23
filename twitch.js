@@ -38,30 +38,14 @@ const timeOutCommand = () => {
 
 const skipClip = () => {
   client.say('tf2frags', 'Skipping clip');
-  // update clip
-  fetch(`${process.env.API_URL}/clips/current`, {
+  fetch(`${process.env.API_URL}/clips/next`, {
     headers: new fetch.Headers({
       'Accept': 'application/json',
       'Authorization': process.env.API_KEY,
     }),
   }).then((output) => output.json()).then((output) => {
-    return fetch(`${process.env.API_URL}/clips/${output._id}`, { // skip the clip
-      method: 'PUT',
-      headers: new fetch.Headers({
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': process.env.API_KEY,
-      }),
-    });
-  }).then((output) => output.json()).then((output) => {
     console.log('Skipped clip');
     client.say('tf2frags', 'Clip is being skipped...');
-    return fetch(`${process.env.API_URL}/clips/next`, {
-      headers: new fetch.Headers({
-        'Accept': 'application/json',
-        'Authorization': process.env.API_KEY,
-      }),
-    });
   }).catch((error) => {
     console.error(error);
     client.say('tf2frags', 'Could not skip clip!');
@@ -274,7 +258,7 @@ const actions = {
           vote.votees.push(userstate['display-name']); // add the username to the 
           client.say('tf2frags', `Vote called for clip ${url.href}. Type !vote to vote yes`);
 
-          if (userstate.mod || userstate.badges.broadcaster) { // is admin
+          if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) { // is admin
             passVote();
             clearTimeout(voteTimeout);
             return;
@@ -300,7 +284,7 @@ const actions = {
       }
     } else {
       if (vote.url) { // vote in progress
-        if (userstate.mod || userstate.badges.broadcaster) { // is admin
+        if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) { // is admin
           passVote();
           clearTimeout(voteTimeout);
           return;
@@ -346,7 +330,7 @@ const actions = {
   },
   // MOD COMMANDS
   'restartClip': (userstate, params) => {
-    if (userstate.mod || userstate.badges.broadcaster) {
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) {
       obs.restartBrowser();
       client.say('tf2frags', 'Restarting clip...');
     } else {
@@ -354,7 +338,7 @@ const actions = {
     }
   },
   'randomise': (userstate, params) => {
-    if (userstate.mod || userstate.badges.broadcaster) {
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) {
       client.say('tf2frags', 'Randomising clips...');
       fetch(`${process.env.API_URL}/clips/randomise`, {
         headers: new fetch.Headers({
@@ -390,7 +374,7 @@ const actions = {
     }
   },
   'cancel': (userstate, params) => {
-    if (userstate.mod || userstate.badges.broadcaster) {
+    if (userstate.mod || (userstate.badges && userstate.badges.broadcaster)) {
       vote.url = '';
       vote.code = '',
       vote.votees = [];
@@ -406,7 +390,7 @@ const actions = {
   },
   // BROADCASTER COMMANDS
   'stopStream': (userstate, params) => {
-    if(userstate.badges.broadcaster === '1') {
+    if(userstate.badges && userstate.badges.broadcaster) {
       obs.stopStream();
       client.say('tf2frags', 'Stream is ending. Thanks for watching!');
     } else {
@@ -414,7 +398,7 @@ const actions = {
     }
   },
   'startStream': (userstate, params) => {
-    if(userstate.badges.broadcaster === '1') {
+    if(userstate.badges && userstate.badges.broadcaster) {
       obs.startStream();
       client.say('tf2frags', 'Stream is starting...');
     } else {
