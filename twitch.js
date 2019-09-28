@@ -269,7 +269,7 @@ const actions = {
           }).then((output) => {
             return output.json();
           }).then((output) => {
-            const required = Math.ceil(output.viewer_count * 0.25); // 25%
+            const required = Math.ceil(output.data[0].viewer_count * 0.25); // 25%
             if (vote.votees.length === required) { // vote passed
               passVote();
               clearTimeout(voteTimeout);
@@ -295,11 +295,12 @@ const actions = {
         }).then((output) => {
           return output.json();
         }).then((output) => {
-          const required = Math.ceil(output.viewer_count * 0.25); // 25%
+          const required = Math.ceil(output.data[0].viewer_count * 0.25); // 25%
           if (vote.votees.length === required) { // vote passed
             passVote();
             clearTimeout(voteTimeout);
           } else {
+            vote.votees.push(userstate['display-name'])
             client.say('tf2frags', `Vote for ${vote.url}, ${vote.votees.length}/${required} votes`);
           }
         }).catch((error) => {
