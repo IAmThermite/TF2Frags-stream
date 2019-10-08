@@ -28,11 +28,16 @@
       obs.connect({ address: 'localhost:4444'});
 
       function setScene(sceneName) {
-        obs.send('SetCurrentScene', {'scene-name': sceneName});        
+        obs.send('GetCurrentScene').then((output) => {
+          if(output.name !== sceneName) {
+            obs.send('SetCurrentScene', {'scene-name': sceneName});
+          }
+        })
       }
 
       async function stopStream() {
         setScene('End');
+        clearTimeout();
         await new Promise(resolve => setTimeout(resolve, 30000)); // sleep for 30 seconds
         obs.send('StopStreaming');
       }
